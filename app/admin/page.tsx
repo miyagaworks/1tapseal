@@ -35,6 +35,9 @@ export default function AdminPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // selectedOrderIdから注文を取得
+  const selectedOrder = orders.find(order => order.id === selectedOrderId);
+
   // ページロード時に認証状態をチェック
   useEffect(() => {
     const authToken = localStorage.getItem('admin_auth');
