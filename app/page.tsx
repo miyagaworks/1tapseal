@@ -31,8 +31,11 @@ export default function Home() {
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // ページ読み込み時にスクロール位置をトップに
+    window.scrollTo(0, 0);
+
     // Intersection Observerでヒーローセクションが見えたらアニメーション開始
-    const observer = new IntersectionObserver(
+    const heroObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !animationStarted) {
@@ -47,18 +50,38 @@ export default function Home() {
     );
 
     if (heroRef.current) {
-      observer.observe(heroRef.current);
+      heroObserver.observe(heroRef.current);
     }
 
+    // 全セクションのフェードインアニメーション（少し遅延させてマンガを先に見せる）
+    const fadeObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" }
+    );
+
+    // ページ読み込み後に少し遅延してからオブザーバーを開始
+    const fadeTimeout = setTimeout(() => {
+      const fadeElements = document.querySelectorAll(".fade-in-section");
+      fadeElements.forEach((el) => fadeObserver.observe(el));
+    }, 500);
+
     return () => {
-      observer.disconnect();
+      heroObserver.disconnect();
+      fadeObserver.disconnect();
+      clearTimeout(fadeTimeout);
     };
   }, [animationStarted]);
 
   return (
     <div className="min-h-screen bg-white">
-      {/* スマホ専用：マンガセクション */}
-      <section className="md:hidden bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900">
+      {/* スマホ専用：マンガセクション - 最初に表示 */}
+      <section className="md:hidden bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900" style={{ opacity: 1, transform: 'none' }}>
         {/* キャッチコピー */}
         <div className="text-center pt-6 pb-4 px-4">
           <p className="text-primary-light text-sm font-bold tracking-wider mb-1">
@@ -83,7 +106,7 @@ export default function Home() {
       </section>
 
       {/* トップキャッチコピー（黒背景） */}
-      <section id="main-content" className="bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 pt-8 pb-4 md:py-12">
+      <section id="main-content" className="fade-in-section bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 pt-8 pb-4 md:py-12">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-lg md:text-3xl lg:text-4xl font-bold leading-relaxed md:leading-tight">
             QRコードが読まれない、本当の理由。
@@ -267,7 +290,7 @@ export default function Home() {
       </section>
 
       {/* QRコードとの比較セクション */}
-      <section className="px-4 py-16 md:py-24 bg-bg-cream">
+      <section className="fade-in-section px-4 py-16 md:py-24 bg-bg-cream">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
@@ -489,7 +512,7 @@ export default function Home() {
       </section>
 
       {/* 業種別セクション */}
-      <section id="cases" className="px-4 py-16 md:py-24 bg-white">
+      <section id="cases" className="fade-in-section px-4 py-16 md:py-24 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
@@ -801,7 +824,7 @@ export default function Home() {
       </section>
 
       {/* 透明シールの可能性 */}
-      <section className="px-4 py-16 md:py-24 bg-bg-cream">
+      <section className="fade-in-section px-4 py-16 md:py-24 bg-bg-cream">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
@@ -911,7 +934,7 @@ export default function Home() {
       </section>
 
       {/* 価格セクション */}
-      <section id="order" className="px-4 py-16 md:py-24 bg-white">
+      <section id="order" className="fade-in-section px-4 py-16 md:py-24 bg-white">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
@@ -1075,7 +1098,7 @@ export default function Home() {
       </section>
 
       {/* お客様の声 */}
-      <section className="px-4 py-16 md:py-24 bg-bg-cream">
+      <section className="fade-in-section px-4 py-16 md:py-24 bg-bg-cream">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
@@ -1123,7 +1146,7 @@ export default function Home() {
       </section>
 
       {/* 最終CTA */}
-      <section className="px-4 py-16 md:py-24 bg-gradient-to-br from-primary-light via-primary-light to-primary">
+      <section className="fade-in-section px-4 py-16 md:py-24 bg-gradient-to-br from-primary-light via-primary-light to-primary">
         <div className="max-w-4xl mx-auto text-center">
           <div className="mb-8">
             <h2 className="text-2xl md:text-4xl font-bold mb-4 text-text-dark">
@@ -1164,7 +1187,7 @@ export default function Home() {
       </section>
 
       {/* フッター */}
-      <footer className="bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-bg-cream px-4 py-12">
+      <footer className="fade-in-section bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-bg-cream px-4 py-12">
         <div className="max-w-6xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div>
