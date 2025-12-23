@@ -23,17 +23,32 @@ import {
   MdPalette,
   MdLayers,
   MdThumbDown,
-  MdThumbUp
+  MdThumbUp,
+  MdKeyboardArrowUp
 } from "react-icons/md";
 
 export default function Home() {
   const [animationStarted, setAnimationStarted] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
   // ページ読み込み時にスクロール位置をトップに（初回のみ）
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // スクロール位置を監視してトップに戻るボタンの表示/非表示
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 500);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     // Intersection Observerでヒーローセクションが見えたらアニメーション開始
@@ -1273,6 +1288,17 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* トップに戻るボタン */}
+      <button
+        onClick={scrollToTop}
+        className={`fixed bottom-6 right-6 z-50 bg-accent-light hover:bg-accent text-white p-3 rounded-full shadow-lg transition-all duration-300 ${
+          showScrollTop ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        }`}
+        aria-label="トップに戻る"
+      >
+        <MdKeyboardArrowUp className="text-2xl" />
+      </button>
     </div>
   );
 }
