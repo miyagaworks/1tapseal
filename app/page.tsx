@@ -123,7 +123,7 @@ export default function Home() {
       </section>
 
       {/* トップキャッチコピー（黒背景） */}
-      <section id="main-content" className="fade-in-section bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 pt-8 pb-4 md:py-12">
+      <section id="main-content" className="fade-in-section bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 py-6 md:py-12">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-lg md:text-3xl lg:text-4xl font-bold leading-relaxed md:leading-tight">
             QRコードが読まれない、本当の理由。
