@@ -30,10 +30,12 @@ export default function Home() {
   const [animationStarted, setAnimationStarted] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
 
+  // ページ読み込み時にスクロール位置をトップに（初回のみ）
   useEffect(() => {
-    // ページ読み込み時にスクロール位置をトップに
     window.scrollTo(0, 0);
+  }, []);
 
+  useEffect(() => {
     // Intersection Observerでヒーローセクションが見えたらアニメーション開始
     const heroObserver = new IntersectionObserver(
       (entries) => {
