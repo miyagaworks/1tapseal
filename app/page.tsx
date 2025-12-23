@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   MdMuseum,
   MdLocalHospital,
@@ -28,17 +28,32 @@ import {
 
 export default function Home() {
   const [animationStarted, setAnimationStarted] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // ページ読み込み後、少し遅延してアニメーション開始
-    const animationTimer = setTimeout(() => {
-      setAnimationStarted(true);
-    }, 500);
+    // Intersection Observerでヒーローセクションが見えたらアニメーション開始
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !animationStarted) {
+            // 少し遅延してアニメーション開始
+            setTimeout(() => {
+              setAnimationStarted(true);
+            }, 300);
+          }
+        });
+      },
+      { threshold: 0.3 } // 30%見えたらトリガー
+    );
+
+    if (heroRef.current) {
+      observer.observe(heroRef.current);
+    }
 
     return () => {
-      clearTimeout(animationTimer);
+      observer.disconnect();
     };
-  }, []);
+  }, [animationStarted]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -79,7 +94,7 @@ export default function Home() {
       </section>
 
       {/* ヒーローセクション（黄色背景） */}
-      <section className="bg-gradient-to-br from-primary-light via-primary-light to-primary text-text-dark px-4 py-12 md:py-16">
+      <section ref={heroRef} className="bg-gradient-to-br from-primary-light via-primary-light to-primary text-text-dark px-4 py-12 md:py-16">
         <div className="max-w-7xl mx-auto">
           {/* 大きな数字とテキスト */}
           <div className="mb-12 md:mb-16">
