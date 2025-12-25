@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { MdShoppingCart, MdUploadFile, MdArrowBack, MdCheck, MdSearch } from "react-icons/md";
 import { useState, useEffect } from "react";
+import { GoogleMap } from "@/lib/components/GoogleMap";
 
 interface FormData {
   quantity: number;
@@ -52,7 +53,6 @@ export default function OrderPage() {
     agreeToTerms: false
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [mapUrl, setMapUrl] = useState<string>('');
   const [postalCodeSuggestions, setPostalCodeSuggestions] = useState<string[]>([]);
 
   // 価格計算
@@ -134,18 +134,10 @@ export default function OrderPage() {
     window.open(searchUrl, '_blank');
   };
 
-  // 番地入力時にGoogle Mapを更新
-  useEffect(() => {
-    if (formData.prefecture && formData.city && formData.address) {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-      // マーカー問題未解決 - 一旦シンプルなplace modeで
-      const fullAddress = `${formData.prefecture}${formData.city}${formData.address}`;
-      setMapUrl(`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(fullAddress)}&zoom=17`);
-    } else {
-      setMapUrl('');
-    }
-  }, [formData.prefecture, formData.city, formData.address, formData.postalCode]);
+  // 地図表示用の住所を生成
+  const mapAddress = formData.prefecture && formData.city && formData.address
+    ? `${formData.prefecture}${formData.city}${formData.address}`
+    : '';
 
   // バリデーション
   const validateForm = (): boolean => {
@@ -479,20 +471,13 @@ export default function OrderPage() {
               </div>
 
               {/* Google Map */}
-              {mapUrl && (
+              {mapAddress && (
                 <div className="mt-6">
                   <h3 className="font-bold text-text-dark mb-3">配送先地図</h3>
-                  <div className="w-full h-64 md:h-96 rounded-lg overflow-hidden border-2 border-primary-light">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={mapUrl}
-                    ></iframe>
-                  </div>
+                  <GoogleMap
+                    address={mapAddress}
+                    className="w-full h-64 md:h-96 rounded-lg overflow-hidden border-2 border-primary-light"
+                  />
                 </div>
               )}
             </section>
@@ -995,22 +980,15 @@ export default function OrderPage() {
                 </div>
 
                 {/* Google Map */}
-                {mapUrl && (
+                {mapAddress && (
                   <div className="mt-6">
                     <label className="block text-text-dark font-semibold mb-2">
                       配送先地図の確認
                     </label>
-                    <div className="w-full h-64 md:h-96 rounded-lg overflow-hidden border-2 border-primary-light">
-                      <iframe
-                        width="100%"
-                        height="100%"
-                        style={{ border: 0 }}
-                        loading="lazy"
-                        allowFullScreen
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={mapUrl}
-                      ></iframe>
-                    </div>
+                    <GoogleMap
+                      address={mapAddress}
+                      className="w-full h-64 md:h-96 rounded-lg overflow-hidden border-2 border-primary-light"
+                    />
                   </div>
                 )}
 
