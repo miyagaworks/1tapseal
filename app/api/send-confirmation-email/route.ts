@@ -23,6 +23,13 @@ export async function POST(request: NextRequest) {
       url,
       memo,
       orderDate,
+      // 支払い情報
+      paymentMethod,
+      paymentAmount,
+      invoiceNumber,
+      invoiceRecipientName,
+      invoicePostalCode,
+      invoiceAddress,
     } = body;
 
     // バリデーション
@@ -36,11 +43,76 @@ export async function POST(request: NextRequest) {
     const formattedDate = new Date(orderDate).toLocaleString('ja-JP');
     const fullAddress = `〒${customerPostalCode} ${customerPrefecture}${customerCity}${customerStreetAddress}${customerBuilding ? ` ${customerBuilding}` : ''}`;
 
+    // 銀行振込の場合の振込先情報
+    const bankName = process.env.BANK_NAME || '（未設定）';
+    const bankBranch = process.env.BANK_BRANCH || '（未設定）';
+    const bankAccountType = process.env.BANK_ACCOUNT_TYPE || '普通';
+    const bankAccountNumber = process.env.BANK_ACCOUNT_NUMBER || '（未設定）';
+    const bankAccountHolder = process.env.BANK_ACCOUNT_HOLDER || '（未設定）';
+
+    // 支払い期限（14日後）
+    const dueDate = new Date(orderDate);
+    dueDate.setDate(dueDate.getDate() + 14);
+    const formattedDueDate = `${dueDate.getFullYear()}年${dueDate.getMonth() + 1}月${dueDate.getDate()}日`;
+
+    // 支払い方法に応じたメール件名
+    const emailSubject = paymentMethod === 'bank_transfer'
+      ? '【ワンタップシール】ご注文ありがとうございます（お振込みのご案内）'
+      : '【ワンタップシール】ご注文ありがとうございます';
+
+    // 銀行振込用の追加セクション
+    const bankTransferSection = paymentMethod === 'bank_transfer' ? `
+            <div class="order-info" style="background-color: #e8f4f8; border: 2px solid #0288d1;">
+              <h2 style="margin-top: 0; color: #0277bd;">お振込み情報</h2>
+              <p style="color: #d32f2f; font-weight: bold; margin-bottom: 15px;">お支払い期限: ${formattedDueDate}</p>
+              <div class="info-row">
+                <div class="info-label">請求書番号:</div>
+                <div class="info-value">${invoiceNumber || '-'}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">ご請求金額:</div>
+                <div class="info-value" style="font-size: 18px; font-weight: bold; color: #d32f2f;">¥${(paymentAmount || 0).toLocaleString()}</div>
+              </div>
+              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+                <p style="font-weight: bold; margin-bottom: 10px;">振込先口座</p>
+                <div class="info-row">
+                  <div class="info-label">銀行名:</div>
+                  <div class="info-value">${bankName}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">支店名:</div>
+                  <div class="info-value">${bankBranch}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">口座種別:</div>
+                  <div class="info-value">${bankAccountType}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">口座番号:</div>
+                  <div class="info-value">${bankAccountNumber}</div>
+                </div>
+                <div class="info-row">
+                  <div class="info-label">口座名義:</div>
+                  <div class="info-value">${bankAccountHolder}</div>
+                </div>
+              </div>
+              <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                ※ 振込手数料はお客様のご負担となります。<br>
+                ※ ご入金確認後、商品の発送準備を開始いたします。
+              </p>
+            </div>
+    ` : '';
+
+    // 銀行振込の場合のメッセージ
+    const paymentMessage = paymentMethod === 'bank_transfer'
+      ? '<p>上記の口座へお振込みをお願いいたします。ご入金確認後、製作を開始いたします。</p>'
+      : '<p>ご注文内容の製作を開始いたします。発送準備が整い次第、追跡番号とともにメールにてご連絡いたします。</p>';
+
     // 顧客向けメール送信
     const { error: customerError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
       to: customerEmail,
-      subject: '【ワンタップシール】ご注文ありがとうございます',
+      subject: emailSubject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -146,7 +218,9 @@ export async function POST(request: NextRequest) {
               <div class="url-value">${url}</div>
             </div>
 
-            <p>ご注文内容の製作を開始いたします。発送準備が整い次第、追跡番号とともにメールにてご連絡いたします。</p>
+            ${bankTransferSection}
+
+            ${paymentMessage}
 
             <p>ご不明な点がございましたら、お気軽にお問い合わせください。</p>
           </div>
@@ -172,11 +246,16 @@ export async function POST(request: NextRequest) {
       console.error('Customer email error:', customerError);
     }
 
+    // 管理者向けメール件名
+    const adminSubject = paymentMethod === 'bank_transfer'
+      ? `【新規注文・銀行振込】${customerName}様 - ${quantity}枚 - ¥${(paymentAmount || 0).toLocaleString()}`
+      : `【新規注文・カード決済】${customerName}様 - ${quantity}枚`;
+
     // 管理者向けメール送信
     const { error: adminError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
       to: ADMIN_EMAIL,
-      subject: `【新規注文】${customerName}様 - ${quantity}枚`,
+      subject: adminSubject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -273,7 +352,43 @@ export async function POST(request: NextRequest) {
                 <div class="info-label">注文枚数:</div>
                 <div class="info-value"><strong>${quantity}枚</strong></div>
               </div>
+              <div class="info-row">
+                <div class="info-label">支払い方法:</div>
+                <div class="info-value"><strong>${paymentMethod === 'bank_transfer' ? '銀行振込' : 'カード決済'}</strong></div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">金額:</div>
+                <div class="info-value"><strong style="color: #d32f2f;">¥${(paymentAmount || 0).toLocaleString()}</strong></div>
+              </div>
+              ${paymentMethod === 'bank_transfer' && invoiceNumber ? `
+              <div class="info-row">
+                <div class="info-label">請求書番号:</div>
+                <div class="info-value">${invoiceNumber}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">支払い期限:</div>
+                <div class="info-value" style="color: #d32f2f;">${formattedDueDate}</div>
+              </div>
+              ` : ''}
             </div>
+
+            ${paymentMethod === 'bank_transfer' ? `
+            <div class="section" style="background-color: #e8f4f8;">
+              <h3 class="section-title" style="border-bottom-color: #0288d1; color: #0277bd;">請求書送付先</h3>
+              <div class="info-row">
+                <div class="info-label">宛名:</div>
+                <div class="info-value">${invoiceRecipientName || customerName}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">郵便番号:</div>
+                <div class="info-value">〒${invoicePostalCode || customerPostalCode}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">住所:</div>
+                <div class="info-value">${invoiceAddress || customerAddress}</div>
+              </div>
+            </div>
+            ` : ''}
 
             <div class="highlight">
               <strong>書き込みURL:</strong>

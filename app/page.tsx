@@ -123,12 +123,12 @@ export default function Home() {
       </section>
 
       {/* トップキャッチコピー（黒背景） */}
-      <section id="main-content" className="fade-in-section bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 py-6 md:py-12">
+      <section id="main-content" className="bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-white px-4 py-6 md:py-12">
         <div className="max-w-6xl mx-auto text-center">
           <h1 className="text-lg md:text-3xl lg:text-4xl font-bold leading-relaxed md:leading-tight">
-            QRコードが読まれない、本当の理由。
+            QRコードより便利なものがあります。
             <br className="md:hidden" />
-            それは「面倒だから」。
+            ご存知でしたか？
           </h1>
         </div>
       </section>
@@ -314,7 +314,7 @@ export default function Home() {
               あなた自身もQRコードを読まないのでは？
             </h2>
             <p className="text-xl md:text-2xl text-text-medium italic">
-              お客様も、同じです。
+              実は、みなさん同じです。
             </p>
           </div>
 
@@ -521,8 +521,8 @@ export default function Home() {
             <p className="text-lg md:text-xl text-justify text-text-dark italic text-center font-medium">
               「読まされる」QRコードから、「使いたくなる」ワンタップシールへ。
               <br />
-              これは、認知の問題ではありません。
-              <strong className="text-accent-light">体験の問題</strong>です。
+              スタイリッシュに使いこなそう。
+              <strong className="text-accent-light">一歩先ゆく</strong>できる人。
             </p>
           </div>
         </div>
@@ -538,6 +538,81 @@ export default function Home() {
             <p className="text-xl md:text-2xl text-text-medium italic">
               あらゆる場所で、情報をつなげる。
             </p>
+          </div>
+
+          {/* 病院・クリニック */}
+          <div className="mb-12 bg-gradient-to-br from-bg-cream to-white rounded-lg shadow-lg p-6 md:p-8 border-2 border-primary-light">
+            <div className="flex items-center gap-3 mb-4">
+              <MdLocalHospital className="text-3xl text-accent-light" />
+              <h3 className="text-xl md:text-2xl font-bold text-text-dark">
+                病院・クリニック
+              </h3>
+            </div>
+
+            <div className="mb-4">
+              <Image
+                src="/images/clinic-usage.jpg"
+                alt="クリニックでの使用イメージ"
+                width={800}
+                height={600}
+                className="w-full h-auto rounded-xl"
+              />
+            </div>
+
+            <h4 className="font-bold text-lg mb-2 text-text-dark">
+              こんな課題ありませんか？
+            </h4>
+            <ul className="list-disc pl-5 text-text-medium mb-4 space-y-1">
+              <li>Web問診票を導入したが、高齢者が使えない</li>
+              <li>受付で「どうやって読み取るの？」と毎回質問される</li>
+              <li>結局、紙の問診票を併用している</li>
+            </ul>
+
+            <h4 className="font-bold text-lg mb-2 text-text-dark">
+              ワンタップシールの解決策
+            </h4>
+            <ul className="list-none space-y-2 mb-6">
+              <li className="flex items-start gap-2">
+                <span className="text-accent-light mr-2 text-xl">✓</span>
+                <span className="text-text-medium text-justify flex-1">
+                  <strong className="text-text-dark">
+                    かざすだけで問診票表示
+                  </strong>
+                  ：高齢者の入力率が大幅向上
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent-light mr-2 text-xl">✓</span>
+                <span className="text-text-medium text-justify flex-1">
+                  <strong className="text-text-dark">受付業務の効率化</strong>
+                  ：スタッフの説明負担が減る
+                </span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-accent-light mr-2 text-xl">✓</span>
+                <span className="text-text-medium text-justify flex-1">
+                  <strong className="text-text-dark">待ち時間短縮</strong>
+                  ：スムーズな受付で患者満足度向上
+                </span>
+              </li>
+            </ul>
+
+            <div className="bg-gradient-to-r from-primary-light/30 to-primary/30 border-l-4 border-primary p-4 mb-4">
+              <p className="text-sm text-text-dark">
+                <strong>実証データ：</strong>
+                小さなクリニックの山田さん「Web問診票の入力率が
+                <span className="text-accent-light font-bold">30%→80%</span>
+                に向上」
+              </p>
+            </div>
+
+            <Link
+              href="#order"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-light to-primary hover:from-primary-dark hover:to-secondary text-text-dark font-bold py-3 px-6 rounded-lg transition-colors shadow-lg"
+            >
+              <MdDownload className="text-xl" />
+              病院向け導入ガイドをダウンロード（無料）
+            </Link>
           </div>
 
           {/* 美術館・博物館 */}
@@ -622,81 +697,6 @@ export default function Home() {
             >
               <MdDownload className="text-xl" />
               美術館向け導入ガイドをダウンロード（無料）
-            </Link>
-          </div>
-
-          {/* 病院・クリニック */}
-          <div className="mb-12 bg-gradient-to-br from-bg-cream to-white rounded-lg shadow-lg p-6 md:p-8 border-2 border-primary-light">
-            <div className="flex items-center gap-3 mb-4">
-              <MdLocalHospital className="text-3xl text-accent-light" />
-              <h3 className="text-xl md:text-2xl font-bold text-text-dark">
-                病院・クリニック
-              </h3>
-            </div>
-
-            <div className="mb-4">
-              <Image
-                src="/images/clinic-usage.jpg"
-                alt="クリニックでの使用イメージ"
-                width={800}
-                height={600}
-                className="w-full h-auto rounded-xl"
-              />
-            </div>
-
-            <h4 className="font-bold text-lg mb-2 text-text-dark">
-              こんな課題ありませんか？
-            </h4>
-            <ul className="list-disc pl-5 text-text-medium mb-4 space-y-1">
-              <li>Web問診票を導入したが、高齢者が使えない</li>
-              <li>受付で「どうやって読み取るの？」と毎回質問される</li>
-              <li>結局、紙の問診票を併用している</li>
-            </ul>
-
-            <h4 className="font-bold text-lg mb-2 text-text-dark">
-              ワンタップシールの解決策
-            </h4>
-            <ul className="list-none space-y-2 mb-6">
-              <li className="flex items-start gap-2">
-                <span className="text-accent-light mr-2 text-xl">✓</span>
-                <span className="text-text-medium text-justify flex-1">
-                  <strong className="text-text-dark">
-                    かざすだけで問診票表示
-                  </strong>
-                  ：高齢者の入力率が大幅向上
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-accent-light mr-2 text-xl">✓</span>
-                <span className="text-text-medium text-justify flex-1">
-                  <strong className="text-text-dark">受付業務の効率化</strong>
-                  ：スタッフの説明負担が減る
-                </span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-accent-light mr-2 text-xl">✓</span>
-                <span className="text-text-medium text-justify flex-1">
-                  <strong className="text-text-dark">待ち時間短縮</strong>
-                  ：スムーズな受付で患者満足度向上
-                </span>
-              </li>
-            </ul>
-
-            <div className="bg-gradient-to-r from-primary-light/30 to-primary/30 border-l-4 border-primary p-4 mb-4">
-              <p className="text-sm text-text-dark">
-                <strong>実証データ：</strong>
-                小さなクリニックの山田さん「Web問診票の入力率が
-                <span className="text-accent-light font-bold">30%→80%</span>
-                に向上」
-              </p>
-            </div>
-
-            <Link
-              href="#order"
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-light to-primary hover:from-primary-dark hover:to-secondary text-text-dark font-bold py-3 px-6 rounded-lg transition-colors shadow-lg"
-            >
-              <MdDownload className="text-xl" />
-              病院向け導入ガイドをダウンロード（無料）
             </Link>
           </div>
 
@@ -944,6 +944,70 @@ export default function Home() {
                 <p className="text-text-medium">
                   ポスター・パッケージのデザインを活かす
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* デジタル名刺セクション */}
+      <section className="fade-in-section px-4 py-16 md:py-24 bg-gradient-to-b from-white to-bg-cream">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-4xl font-bold text-text-dark mb-4">
+              デジタル名刺の共有もワンタップシール
+            </h2>
+            <p className="text-xl md:text-2xl text-text-medium italic">
+              複数のSNSをまとめて、スマートに自己紹介
+            </p>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6 md:p-10 border border-primary-light/30">
+            <div className="flex flex-col-reverse md:flex-row items-center gap-8">
+              <div className="flex-1 space-y-4">
+                <h3 className="text-xl md:text-2xl font-bold text-text-dark">
+                  Share（シェア）と組み合わせて
+                </h3>
+                <p className="text-text-medium leading-relaxed">
+                  LINE、Instagram、X、YouTube、TikTokなど、複数のSNSアカウントを1つのページにまとめられる「Share」。
+                  ワンタップシールにShareのURLを書き込めば、名刺やスマホケースにタップするだけで、あなたのすべてのSNSを一瞬で共有できます。
+                </p>
+                <ul className="space-y-2 text-text-medium">
+                  <li className="flex items-start gap-2">
+                    <span className="text-accent font-bold">✓</span>
+                    <span>複数のSNSを1タップで共有</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-accent font-bold">✓</span>
+                    <span>QRコードも自動生成</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-accent font-bold">✓</span>
+                    <span>連絡先の保存もワンクリック</span>
+                  </li>
+                </ul>
+                <div className="pt-4 text-center">
+                  <a
+                    href="https://www.sns-share.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-accent hover:bg-accent-dark text-white font-bold py-3 px-6 rounded-full transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    Shareを見てみる
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <Image
+                  src="/images/digitalcard.png"
+                  alt="デジタル名刺をタップで共有"
+                  width={300}
+                  height={300}
+                  className="w-full h-auto aspect-square md:w-96 md:h-96 rounded-2xl shadow-lg object-cover"
+                />
               </div>
             </div>
           </div>

@@ -21,6 +21,10 @@ import {
   MdArrowForward,
   MdArrowBack,
   MdDownload,
+  MdPayment,
+  MdAccountBalance,
+  MdCreditCard,
+  MdReceipt,
 } from "react-icons/md";
 
 export default function AdminPage() {
@@ -34,6 +38,7 @@ export default function AdminPage() {
   const [showTrackingModal, setShowTrackingModal] = useState(false);
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   // selectedOrderIdから注文を取得
   const selectedOrder = orders.find(order => order.id === selectedOrderId);
@@ -157,6 +162,58 @@ export default function AdminPage() {
     } finally {
       setSendingEmail(false);
     }
+  };
+
+  // 入金確認処理
+  const handleConfirmPayment = async (order: Order) => {
+    if (!confirm(`${order.customer_name}様の注文の入金を確認しますか？\n\n確認後、入金確認メールが送信されます。`)) {
+      return;
+    }
+
+    setConfirmingPayment(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/confirm-payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "入金確認に失敗しました");
+      }
+
+      alert("入金確認が完了しました。確認メールを送信しました。");
+      fetchOrders();
+    } catch (error) {
+      console.error("Error confirming payment:", error);
+      alert(`エラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  // 支払い方法の表示
+  const getPaymentMethodLabel = (method: string | null | undefined) => {
+    if (!method) return "-";
+    return method === "card" ? "カード決済" : "銀行振込";
+  };
+
+  // 支払いステータスバッジ
+  const getPaymentStatusBadge = (status: string | null | undefined, method: string | null | undefined) => {
+    if (!method) return null;
+
+    const statusLabel = status === "paid" ? "入金済" : status === "pending" ? "処理中" : "未入金";
+    const styles = status === "paid"
+      ? "bg-green-100 text-green-800"
+      : status === "pending"
+        ? "bg-yellow-100 text-yellow-800"
+        : "bg-red-100 text-red-800";
+
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${styles}`}>
+        {statusLabel}
+      </span>
+    );
   };
 
   // メモからURL+メモのペアを抽出
@@ -332,6 +389,84 @@ export default function AdminPage() {
                     <option value="completed">完了</option>
                   </select>
                 </div>
+
+                {/* 支払い情報 */}
+                {order.payment_method && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h4 className="font-bold text-text-dark border-b pb-2 mb-3 flex items-center gap-2">
+                      <MdPayment className="text-xl" />
+                      支払い情報
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">支払い方法</p>
+                        <p className="font-bold text-gray-900 flex items-center gap-1">
+                          {order.payment_method === "card" ? (
+                            <MdCreditCard className="text-blue-600" />
+                          ) : (
+                            <MdAccountBalance className="text-green-600" />
+                          )}
+                          {getPaymentMethodLabel(order.payment_method)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">入金状況</p>
+                        <p className="font-bold">
+                          {getPaymentStatusBadge(order.payment_status, order.payment_method)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">金額</p>
+                        <p className="font-bold text-gray-900">
+                          ¥{(order.payment_amount || 0).toLocaleString()}
+                        </p>
+                      </div>
+                      {order.payment_date && (
+                        <div>
+                          <p className="text-sm text-gray-600">入金日</p>
+                          <p className="font-bold text-gray-900">
+                            {new Date(order.payment_date).toLocaleDateString("ja-JP")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 請求書情報（銀行振込の場合） */}
+                    {order.payment_method === "bank_transfer" && order.invoice_number && (
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-sm text-gray-600 mb-2">請求書情報</p>
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <span className="font-mono text-sm bg-white px-2 py-1 rounded border">
+                            {order.invoice_number}
+                          </span>
+                          <a
+                            href={`/api/generate-invoice?orderId=${order.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-accent hover:text-accent-light text-sm font-bold"
+                          >
+                            <MdReceipt />
+                            請求書を表示
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 入金確認ボタン（銀行振込で未入金の場合） */}
+                    {order.payment_method === "bank_transfer" && order.payment_status !== "paid" && (
+                      <div className="mt-4 pt-4 border-t">
+                        <button
+                          onClick={() => handleConfirmPayment(order)}
+                          disabled={confirmingPayment}
+                          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          <MdCheck />
+                          {confirmingPayment ? "処理中..." : "入金を確認"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4">
                   {/* 注文情報 */}
@@ -675,6 +810,8 @@ export default function AdminPage() {
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">注文日時</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">顧客名</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">枚数</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">支払い</th>
+                  <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">入金</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">ステータス</th>
                   <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">操作</th>
                 </tr>
@@ -700,6 +837,19 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900">
                       {order.quantity}枚
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">
+                      <div className="flex items-center gap-1">
+                        {order.payment_method === "card" ? (
+                          <MdCreditCard className="text-blue-600" />
+                        ) : order.payment_method === "bank_transfer" ? (
+                          <MdAccountBalance className="text-green-600" />
+                        ) : null}
+                        {getPaymentMethodLabel(order.payment_method)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {getPaymentStatusBadge(order.payment_status, order.payment_method)}
                     </td>
                     <td className="px-4 py-3">
                       {getStatusBadge(order.status)}

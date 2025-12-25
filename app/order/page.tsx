@@ -5,6 +5,8 @@ import { MdShoppingCart, MdUploadFile, MdArrowBack, MdCheck, MdSearch } from "re
 import { useState, useEffect } from "react";
 import { GoogleMap } from "@/lib/components/GoogleMap";
 
+type PaymentMethod = 'card' | 'bank_transfer';
+
 interface FormData {
   quantity: number;
   urls: string[];
@@ -23,7 +25,13 @@ interface FormData {
   building: string;
   phone: string;
   email: string;
-  invoiceName: string;
+  // 支払い方法
+  paymentMethod: PaymentMethod;
+  // 請求書情報（銀行振込の場合）
+  invoiceRecipientName: string;
+  invoicePostalCode: string;
+  invoiceAddress: string;
+  useDeliveryAddressForInvoice: boolean;
   remarks: string;
   agreeToTerms: boolean;
 }
@@ -48,7 +56,13 @@ export default function OrderPage() {
     building: '',
     phone: '',
     email: '',
-    invoiceName: '',
+    // 支払い方法
+    paymentMethod: 'card',
+    // 請求書情報
+    invoiceRecipientName: '',
+    invoicePostalCode: '',
+    invoiceAddress: '',
+    useDeliveryAddressForInvoice: true,
     remarks: '',
     agreeToTerms: false
   });
@@ -242,6 +256,32 @@ export default function OrderPage() {
       if (!firstErrorField) firstErrorField = 'email';
     }
 
+    // 銀行振込の場合、請求書情報をバリデーション
+    if (formData.paymentMethod === 'bank_transfer') {
+      const invoiceRecipientName = formData.useDeliveryAddressForInvoice
+        ? (formData.companyName || formData.customerName)
+        : formData.invoiceRecipientName;
+      const invoicePostalCode = formData.useDeliveryAddressForInvoice
+        ? formData.postalCode
+        : formData.invoicePostalCode;
+      const invoiceAddress = formData.useDeliveryAddressForInvoice
+        ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`
+        : formData.invoiceAddress;
+
+      if (!invoiceRecipientName.trim()) {
+        newErrors.invoiceRecipientName = '請求書宛名を入力してください';
+        if (!firstErrorField) firstErrorField = 'invoiceRecipientName';
+      }
+      if (!invoicePostalCode || invoicePostalCode.length !== 7) {
+        newErrors.invoicePostalCode = '7桁の郵便番号を入力してください';
+        if (!firstErrorField) firstErrorField = 'invoicePostalCode';
+      }
+      if (!invoiceAddress.trim()) {
+        newErrors.invoiceAddress = '請求書送付先住所を入力してください';
+        if (!firstErrorField) firstErrorField = 'invoiceAddress';
+      }
+    }
+
     // 利用規約同意（必須）
     if (!formData.agreeToTerms) {
       newErrors.agreeToTerms = '利用規約とプライバシーポリシーに同意してください';
@@ -263,6 +303,55 @@ export default function OrderPage() {
     }
 
     return Object.keys(newErrors).length === 0;
+  };
+
+  // フォームが完成しているかチェック（ボタン有効化用）
+  const isFormComplete = (): boolean => {
+    // URL関連
+    if (formData.quantity <= 10) {
+      if (formData.useSingleUrl) {
+        if (!formData.singleUrl.trim()) return false;
+      } else {
+        // 各URLをチェック
+        for (let i = 0; i < formData.quantity; i++) {
+          if (!formData.urls[i] || !formData.urls[i].trim()) return false;
+        }
+      }
+    } else {
+      // 11枚以上
+      if (formData.useSingleUrl) {
+        if (!formData.singleUrl.trim()) return false;
+      } else if (formData.useSpreadsheet) {
+        if (!formData.spreadsheetUrl.trim()) return false;
+      } else {
+        if (!formData.excelFile) return false;
+      }
+    }
+
+    // 顧客情報
+    if (!formData.customerName.trim()) return false;
+    if (!formData.prefecture) return false;
+    if (!formData.city) return false;
+    if (!formData.address.trim()) return false;
+    if (!formData.phone || formData.phone.length < 10) return false;
+    if (!formData.email || !formData.email.includes('@')) return false;
+
+    // 銀行振込の場合、請求書情報も必要
+    if (formData.paymentMethod === 'bank_transfer') {
+      if (!formData.useDeliveryAddressForInvoice) {
+        if (!formData.invoiceRecipientName.trim()) return false;
+        if (!formData.invoicePostalCode || formData.invoicePostalCode.length !== 7) return false;
+        if (!formData.invoiceAddress.trim()) return false;
+      } else {
+        // 配送先を使う場合、配送先情報が必要
+        if (!formData.postalCode || formData.postalCode.length !== 7) return false;
+      }
+    }
+
+    // 利用規約同意
+    if (!formData.agreeToTerms) return false;
+
+    return true;
   };
 
   // 確認画面へ
@@ -326,6 +415,17 @@ export default function OrderPage() {
         excelFilePath = uploadResult.filePath;
       }
 
+      // 請求書情報を決定
+      const invoiceRecipientName = formData.useDeliveryAddressForInvoice
+        ? (formData.companyName || formData.customerName)
+        : formData.invoiceRecipientName;
+      const invoicePostalCode = formData.useDeliveryAddressForInvoice
+        ? formData.postalCode
+        : formData.invoicePostalCode;
+      const invoiceAddress = formData.useDeliveryAddressForInvoice
+        ? fullAddress
+        : formData.invoiceAddress;
+
       const orderData = {
         quantity: formData.quantity,
         url: orderUrl,
@@ -341,6 +441,15 @@ export default function OrderPage() {
         customer_building: formData.building.trim(),
         customer_address: fullAddress.trim(),
         customer_phone: formData.phone.trim(),
+        // 支払い情報
+        payment_method: formData.paymentMethod,
+        payment_amount: price.total,
+        // 請求書情報（銀行振込の場合のみ）
+        ...(formData.paymentMethod === 'bank_transfer' && {
+          invoice_recipient_name: invoiceRecipientName.trim(),
+          invoice_postal_code: invoicePostalCode.trim(),
+          invoice_address: invoiceAddress.trim(),
+        }),
       };
 
       const response = await fetch('/api/orders', {
@@ -356,7 +465,31 @@ export default function OrderPage() {
         throw new Error(error.error || '注文の送信に失敗しました');
       }
 
-      alert('ご注文ありがとうございます！\n注文内容を確認次第、担当者よりご連絡いたします。');
+      const result = await response.json();
+
+      // カード決済の場合はStripeチェックアウトにリダイレクト
+      if (formData.paymentMethod === 'card') {
+        // Stripe Checkout Sessionを作成
+        const checkoutResponse = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ orderId: result.order.id }),
+        });
+
+        if (!checkoutResponse.ok) {
+          throw new Error('決済セッションの作成に失敗しました');
+        }
+
+        const checkoutResult = await checkoutResponse.json();
+        // Stripeの決済ページにリダイレクト
+        window.location.href = checkoutResult.url;
+        return;
+      }
+
+      // 銀行振込の場合は完了メッセージを表示
+      alert('ご注文ありがとうございます！\n請求書をメールでお送りしましたので、お振込みをお願いいたします。');
       window.location.href = '/';
     } catch (error) {
       console.error('Error submitting order:', error);
@@ -482,13 +615,53 @@ export default function OrderPage() {
               )}
             </section>
 
-            {/* 請求書情報 */}
-            {(formData.invoiceName || formData.remarks) && (
+            {/* お支払い方法 */}
+            <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
+              <h2 className="text-xl font-bold text-text-dark mb-4">お支払い方法</h2>
+              <div className="space-y-2 text-text-medium">
+                <p>
+                  <span className="font-semibold">支払い方法:</span>{' '}
+                  {formData.paymentMethod === 'card' ? 'クレジットカード決済' : '銀行振込'}
+                </p>
+                {formData.paymentMethod === 'bank_transfer' && (
+                  <>
+                    <p className="text-sm text-accent-light mt-2">
+                      ※ 注文確定後、請求書をメールでお送りします。14日以内にお振込みください。
+                    </p>
+                  </>
+                )}
+              </div>
+            </section>
+
+            {/* 請求書情報（銀行振込の場合） */}
+            {formData.paymentMethod === 'bank_transfer' && (
               <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
-                <h2 className="text-xl font-bold text-text-dark mb-4">請求書情報・備考</h2>
+                <h2 className="text-xl font-bold text-text-dark mb-4">請求書情報</h2>
                 <div className="space-y-2 text-text-medium">
-                  {formData.invoiceName && <p><span className="font-semibold">請求書宛名:</span> {formData.invoiceName}</p>}
-                  {formData.remarks && <p><span className="font-semibold">備考:</span> {formData.remarks}</p>}
+                  <p>
+                    <span className="font-semibold">請求書宛名:</span>{' '}
+                    {formData.useDeliveryAddressForInvoice ? (formData.companyName || formData.customerName) : formData.invoiceRecipientName}
+                  </p>
+                  <p>
+                    <span className="font-semibold">郵便番号:</span>{' '}
+                    〒{formData.useDeliveryAddressForInvoice ? formData.postalCode : formData.invoicePostalCode}
+                  </p>
+                  <p>
+                    <span className="font-semibold">送付先住所:</span>{' '}
+                    {formData.useDeliveryAddressForInvoice
+                      ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`
+                      : formData.invoiceAddress}
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {/* 備考 */}
+            {formData.remarks && (
+              <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
+                <h2 className="text-xl font-bold text-text-dark mb-4">備考・ご要望</h2>
+                <div className="text-text-medium">
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{formData.remarks}</p>
                 </div>
               </section>
             )}
@@ -879,7 +1052,7 @@ export default function OrderPage() {
                         className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
                           errors.postalCode ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
                         }`}
-                        placeholder="1234567 または 123-4567"
+                        placeholder="1234567"
                       />
                       {errors.postalCode && <p className="text-red-600 text-sm mt-2">{errors.postalCode}</p>}
                     </div>
@@ -1034,38 +1207,148 @@ export default function OrderPage() {
               </div>
             </div>
 
-            {/* 請求書情報（任意） */}
+            {/* お支払い方法 */}
             <div className="bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
               <label className="block text-lg font-bold text-text-dark mb-4">
-                4. 請求書情報 <span className="text-sm text-text-medium font-normal">（法人の場合・任意）</span>
+                4. お支払い方法 <span className="text-accent-light">*</span>
               </label>
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-text-dark font-semibold mb-2">
-                    請求書宛名
+                <div className="space-y-3">
+                  <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-primary-light/10"
+                    style={{ borderColor: formData.paymentMethod === 'card' ? '#ff6f4d' : '#ffdb47' }}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="card"
+                      checked={formData.paymentMethod === 'card'}
+                      onChange={() => setFormData(prev => ({ ...prev, paymentMethod: 'card' }))}
+                      className="w-5 h-5"
+                    />
+                    <div>
+                      <span className="text-text-dark font-semibold">クレジットカード決済</span>
+                      <p className="text-sm text-text-medium mt-1">Visa, Mastercard, JCB, American Express対応</p>
+                    </div>
                   </label>
-                  <input
-                    type="text"
-                    value={formData.invoiceName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceName: e.target.value }))}
-                    className="w-full px-4 py-2 border-2 border-primary-light rounded-lg text-text-dark focus:outline-none focus:border-accent-light"
-                    placeholder="株式会社○○"
-                  />
+
+                  <label className="flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors hover:bg-primary-light/10"
+                    style={{ borderColor: formData.paymentMethod === 'bank_transfer' ? '#ff6f4d' : '#ffdb47' }}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="bank_transfer"
+                      checked={formData.paymentMethod === 'bank_transfer'}
+                      onChange={() => setFormData(prev => ({ ...prev, paymentMethod: 'bank_transfer' }))}
+                      className="w-5 h-5"
+                    />
+                    <div>
+                      <span className="text-text-dark font-semibold">銀行振込</span>
+                      <p className="text-sm text-text-medium mt-1">請求書を発行します（お支払い期限：14日以内）</p>
+                    </div>
+                  </label>
                 </div>
 
-                <div>
-                  <label className="block text-text-dark font-semibold mb-2">
-                    備考・ご要望
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={formData.remarks}
-                    onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
-                    className="w-full px-4 py-2 border-2 border-primary-light rounded-lg text-text-dark focus:outline-none focus:border-accent-light"
-                    placeholder="その他ご要望があればご記入ください"
-                  />
-                </div>
+                {/* 請求書情報（銀行振込選択時のみ表示） */}
+                {formData.paymentMethod === 'bank_transfer' && (
+                  <div className="mt-6 p-4 bg-gradient-to-r from-primary-light/20 to-primary/10 rounded-lg">
+                    <h3 className="text-text-dark font-bold mb-4">請求書情報</h3>
+
+                    <div className="space-y-4">
+                      {/* お届け先住所を使用チェックボックス */}
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.useDeliveryAddressForInvoice}
+                          onChange={(e) => {
+                            const useDelivery = e.target.checked;
+                            setFormData(prev => ({
+                              ...prev,
+                              useDeliveryAddressForInvoice: useDelivery,
+                              invoiceRecipientName: useDelivery ? (prev.companyName || prev.customerName) : prev.invoiceRecipientName,
+                              invoicePostalCode: useDelivery ? prev.postalCode : prev.invoicePostalCode,
+                              invoiceAddress: useDelivery ? `${prev.prefecture}${prev.city}${prev.address}${prev.building ? ' ' + prev.building : ''}` : prev.invoiceAddress
+                            }));
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-text-dark">お届け先住所と同じ</span>
+                      </label>
+
+                      <div>
+                        <label className="block text-text-dark font-semibold mb-2">
+                          請求書宛名 <span className="text-accent-light">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.useDeliveryAddressForInvoice ? (formData.companyName || formData.customerName) : formData.invoiceRecipientName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, invoiceRecipientName: e.target.value }))}
+                          disabled={formData.useDeliveryAddressForInvoice}
+                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                            errors.invoiceRecipientName ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                          } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
+                          placeholder="株式会社○○"
+                        />
+                        {errors.invoiceRecipientName && <p className="text-red-600 text-sm mt-2">{errors.invoiceRecipientName}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-text-dark font-semibold mb-2">
+                          郵便番号 <span className="text-accent-light">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formData.useDeliveryAddressForInvoice ? formData.postalCode : formData.invoicePostalCode}
+                          onChange={(e) => {
+                            const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                            setFormData(prev => ({ ...prev, invoicePostalCode: numericValue }));
+                          }}
+                          disabled={formData.useDeliveryAddressForInvoice}
+                          maxLength={7}
+                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                            errors.invoicePostalCode ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                          } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
+                          placeholder="1234567"
+                        />
+                        {errors.invoicePostalCode && <p className="text-red-600 text-sm mt-2">{errors.invoicePostalCode}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-text-dark font-semibold mb-2">
+                          請求書送付先住所 <span className="text-accent-light">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.useDeliveryAddressForInvoice ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}` : formData.invoiceAddress}
+                          onChange={(e) => setFormData(prev => ({ ...prev, invoiceAddress: e.target.value }))}
+                          disabled={formData.useDeliveryAddressForInvoice}
+                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                            errors.invoiceAddress ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                          } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
+                          placeholder="東京都渋谷区○○1-2-3 ○○ビル4F"
+                        />
+                        {errors.invoiceAddress && <p className="text-red-600 text-sm mt-2">{errors.invoiceAddress}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 備考・ご要望 */}
+            <div className="bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
+              <label className="block text-lg font-bold text-text-dark mb-4">
+                5. 備考・ご要望 <span className="text-sm text-text-medium font-normal">（任意）</span>
+              </label>
+
+              <div>
+                <textarea
+                  rows={4}
+                  value={formData.remarks}
+                  onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                  className="w-full px-4 py-2 border-2 border-primary-light rounded-lg text-text-dark focus:outline-none focus:border-accent-light"
+                  placeholder="その他ご要望があればご記入ください"
+                />
               </div>
             </div>
 
@@ -1079,9 +1362,9 @@ export default function OrderPage() {
                   className="w-5 h-5 flex-shrink-0"
                 />
                 <span className="text-text-dark">
-                  <Link href="/terms" className="text-accent-light hover:underline">利用規約</Link>
+                  <Link href="/legal/terms" target="_blank" className="text-accent-light hover:underline">利用規約</Link>
                   および
-                  <Link href="/privacy" className="text-accent-light hover:underline">プライバシーポリシー</Link>
+                  <Link href="/legal/privacy" target="_blank" className="text-accent-light hover:underline">プライバシーポリシー</Link>
                   に同意します <span className="text-accent-light">*</span>
                 </span>
               </label>
@@ -1093,11 +1376,21 @@ export default function OrderPage() {
               <button
                 type="button"
                 onClick={handleConfirm}
-                className="inline-flex items-center justify-center gap-2 bg-accent-light hover:bg-accent text-white font-bold py-4 px-12 rounded-full text-lg transition-colors shadow-lg"
+                disabled={!isFormComplete()}
+                className={`inline-flex items-center justify-center gap-2 font-bold py-4 px-12 rounded-full text-lg transition-colors shadow-lg ${
+                  isFormComplete()
+                    ? 'bg-accent-light hover:bg-accent text-white cursor-pointer'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <MdShoppingCart className="text-2xl" />
                 注文内容を確認
               </button>
+              {!isFormComplete() && (
+                <p className="text-text-medium text-sm mt-3">
+                  ※ 必須項目をすべて入力してください
+                </p>
+              )}
             </div>
 
             <p className="text-center text-text-medium text-sm">

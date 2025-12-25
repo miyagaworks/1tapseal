@@ -10,6 +10,22 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_building TEXT;
 -- Excelファイルパスを保存するカラムを追加
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS excel_file_path TEXT;
 
+-- 支払い情報カラムを追加
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT; -- 'card' | 'bank_transfer'
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'unpaid'; -- 'unpaid' | 'paid' | 'pending'
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_amount INTEGER;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_date TIMESTAMP;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS stripe_checkout_session_id TEXT;
+
+-- 請求書情報カラムを追加
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number TEXT UNIQUE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_recipient_name TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_postal_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_address TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_registration_number TEXT; -- 顧客のT番号（任意）
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_pdf_path TEXT;
+
 -- Row Level Security (RLS) を有効化
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
