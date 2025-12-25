@@ -137,22 +137,11 @@ export default function OrderPage() {
   // 番地入力時にGoogle Mapを更新
   useEffect(() => {
     if (formData.prefecture && formData.city && formData.address) {
-      // 日本の住所形式で検索（Japan + 郵便番号 + 住所）
-      let fullAddress = '';
-      if (formData.postalCode) {
-        // 郵便番号がある場合：郵便番号ハイフンなし + スペース + 住所
-        const postalCodeClean = formData.postalCode.replace(/-/g, '');
-        fullAddress = `${postalCodeClean} ${formData.prefecture}${formData.city}${formData.address}, Japan`;
-      } else {
-        // 郵便番号がない場合：住所のみ
-        fullAddress = `${formData.prefecture}${formData.city}${formData.address}, Japan`;
-      }
-      const encodedAddress = encodeURIComponent(fullAddress);
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-      // Maps Embed API place モード（公式フォーマット）
-      const japaneseAddress = `${formData.prefecture}${formData.city}${formData.address}`;
-      setMapUrl(`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(japaneseAddress)}&zoom=17&language=ja`);
+      // マーカー問題未解決 - 一旦シンプルなplace modeで
+      const fullAddress = `${formData.prefecture}${formData.city}${formData.address}`;
+      setMapUrl(`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(fullAddress)}&zoom=17`);
     } else {
       setMapUrl('');
     }
@@ -499,6 +488,8 @@ export default function OrderPage() {
                       height="100%"
                       style={{ border: 0 }}
                       loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
                       src={mapUrl}
                     ></iframe>
                   </div>
@@ -1015,6 +1006,8 @@ export default function OrderPage() {
                         height="100%"
                         style={{ border: 0 }}
                         loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
                         src={mapUrl}
                       ></iframe>
                     </div>
