@@ -150,9 +150,9 @@ export default function OrderPage() {
       const encodedAddress = encodeURIComponent(fullAddress);
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-      // directionsモードでマーカーを表示（origin=destinationで同じ場所を指定）
-      // 注: 2つのマーカー（A,B）が表示されますが、これが最も確実な方法です
-      setMapUrl(`https://www.google.com/maps/embed/v1/directions?key=${apiKey}&origin=${encodedAddress}&destination=${encodedAddress}&zoom=17&language=ja`);
+      // Maps Embed API place モード（公式フォーマット）
+      const japaneseAddress = `${formData.prefecture}${formData.city}${formData.address}`;
+      setMapUrl(`https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(japaneseAddress)}&zoom=17&language=ja`);
     } else {
       setMapUrl('');
     }
