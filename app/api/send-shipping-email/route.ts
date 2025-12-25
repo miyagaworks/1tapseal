@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sgMail from '@sendgrid/mail';
+import { Resend } from 'resend';
 
-sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,10 +17,10 @@ export async function POST(request: NextRequest) {
     }
 
     // メール送信
-    const msg = {
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
       to: customerEmail,
-      from: process.env.SENDGRID_FROM_EMAIL || 'noreply@yourdomain.com',
-      subject: '【1TapSeal】商品を発送いたしました',
+      subject: '【ワンタップシール】商品を発送いたしました',
       html: `
         <!DOCTYPE html>
         <html>
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
               border-radius: 8px 8px 0 0;
             }
             .content {
-              background-color: #f9fafb;
+              background-color: #fffbf0;
               padding: 30px;
               border: 1px solid #e5e7eb;
               border-top: none;
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
         </head>
         <body>
           <div class="header">
-            <h1 style="margin: 0;">1TapSeal</h1>
+            <h1 style="margin: 0;">ワンタップシール</h1>
           </div>
           <div class="content">
             <p>${customerName} 様</p>
@@ -140,22 +140,29 @@ export async function POST(request: NextRequest) {
             <p>商品到着まで今しばらくお待ちください。</p>
             <p>万が一、商品に不備がございましたら、お手数ですがお問い合わせください。</p>
 
-            <p>この度は1TapSealをご利用いただき、誠にありがとうございました。</p>
+            <p>この度はワンタップシールをご利用いただき、誠にありがとうございました。</p>
           </div>
           <div class="footer">
             <p>このメールは送信専用です。返信いただいてもお答えできませんのでご了承ください。</p>
-            <p>&copy; 2025 1TapSeal. All rights reserved.</p>
+            <p>&copy; 2025 ワンタップシール by Senrigan Inc. All rights reserved.</p>
           </div>
         </body>
         </html>
       `,
-    };
+    });
 
-    await sgMail.send(msg);
+    if (error) {
+      console.error('Resend error:', error);
+      return NextResponse.json(
+        { error: 'Failed to send email' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Email sent successfully'
+      message: 'Email sent successfully',
+      id: data?.id
     });
   } catch (error) {
     console.error('Error sending shipping email:', error);
