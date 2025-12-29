@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
             .tracking-number-value {
               font-size: 24px;
               font-weight: bold;
-              color: #374151;
+              color: #D97706;
               margin: 10px 0;
               letter-spacing: 2px;
             }
