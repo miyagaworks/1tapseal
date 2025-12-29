@@ -133,8 +133,11 @@ export async function POST(request: NextRequest) {
               <p style="margin: 0; font-weight: bold; color: #92400E;">お問い合わせ番号</p>
               <div class="tracking-number-value">${trackingNumber}</div>
               <p style="margin: 10px 0 0 0; font-size: 14px; color: #92400E;">
-                配送状況は配送業者のウェブサイトでご確認いただけます
+                配送状況は下記リンクからご確認いただけます
               </p>
+              <a href="https://trackings.post.japanpost.jp/services/srv/search/input" target="_blank" class="button" style="display: inline-block; margin-top: 10px;">
+                配送状況を確認する
+              </a>
             </div>
 
             <p>商品到着まで今しばらくお待ちください。</p>
