@@ -41,21 +41,25 @@ export async function POST(
     }
 
     // 入金確認処理
-    const { error: updateError } = await supabaseAdmin
+    const { data: updatedOrder, error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
         payment_status: 'paid',
         payment_date: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select()
+      .single();
 
-    if (updateError) {
+    if (updateError || !updatedOrder) {
       console.error('Failed to update payment status:', updateError);
       return NextResponse.json(
         { error: 'Failed to confirm payment' },
         { status: 500 }
       );
     }
+
+    console.log('Payment confirmed for order:', id, 'New status:', updatedOrder.payment_status);
 
     // 入金確認メールを送信
     try {
