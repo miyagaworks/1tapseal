@@ -968,7 +968,7 @@ export default function Home() {
                 <h3 className="text-xl md:text-2xl font-bold text-text-dark">
                   Share（シェア）と組み合わせて
                 </h3>
-                <p className="text-text-medium leading-relaxed">
+                <p className="text-text-medium leading-relaxed text-justify">
                   LINE、Instagram、X、YouTube、TikTokなど、複数のSNSアカウントを1つのページにまとめられる「Share」。
                   ワンタップシールにShareのURLを書き込めば、スマホケースにタップするだけで、あなたのすべてのSNSを一瞬で共有できます。
                 </p>
