@@ -289,7 +289,7 @@ export default function Home() {
           {/* CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="#order"
+              href="/order"
               className="bg-accent-light hover:bg-accent text-white font-bold py-4 px-8 rounded-full text-center transition-colors text-lg shadow-lg flex items-center justify-center gap-2"
             >
               <MdShoppingCart className="text-2xl" />
