@@ -195,6 +195,38 @@ export default function OrderPage() {
     window.open(searchUrl, '_blank');
   };
 
+  // 請求書用郵便番号から住所を自動入力
+  const handleInvoicePostalCodeChange = async (value: string) => {
+    const numericValue = value.replace(/[^0-9]/g, '');
+    setFormData(prev => ({ ...prev, invoicePostalCode: numericValue }));
+
+    // 7桁入力されたら住所検索
+    if (numericValue.length === 7) {
+      try {
+        const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${numericValue}`);
+        const data = await response.json();
+
+        if (data.results && data.results.length > 0) {
+          const result = data.results[0];
+          const fullAddress = `${result.address1}${result.address2}${result.address3}`;
+          setFormData(prev => ({
+            ...prev,
+            invoiceAddress: fullAddress
+          }));
+          setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.invoicePostalCode;
+            return newErrors;
+          });
+        } else {
+          setErrors(prev => ({ ...prev, invoicePostalCode: '郵便番号が見つかりません' }));
+        }
+      } catch (error) {
+        console.error('郵便番号検索エラー:', error);
+      }
+    }
+  };
+
   // 地図表示用の住所を生成
   const mapAddress = formData.prefecture && formData.city && formData.address
     ? `${formData.prefecture}${formData.city}${formData.address}`
@@ -1490,16 +1522,13 @@ export default function OrderPage() {
 
                       <div>
                         <label className="block text-text-dark font-semibold mb-2">
-                          郵便番号 <span className="text-accent-light">*</span>
+                          郵便番号 <span className="text-accent-light">*</span> <span className="text-sm text-text-medium font-normal">（ハイフンなし7桁）</span>
                         </label>
                         <input
                           type="text"
                           inputMode="numeric"
                           value={formData.useDeliveryAddressForInvoice ? formData.postalCode : formData.invoicePostalCode}
-                          onChange={(e) => {
-                            const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                            setFormData(prev => ({ ...prev, invoicePostalCode: numericValue }));
-                          }}
+                          onChange={(e) => handleInvoicePostalCodeChange(e.target.value)}
                           disabled={formData.useDeliveryAddressForInvoice}
                           maxLength={7}
                           className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
@@ -1507,6 +1536,9 @@ export default function OrderPage() {
                           } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
                           placeholder="1234567"
                         />
+                        {!formData.useDeliveryAddressForInvoice && (
+                          <p className="text-text-medium text-xs mt-1">※ 7桁入力で住所を自動入力します</p>
+                        )}
                         {errors.invoicePostalCode && <p className="text-red-600 text-sm mt-2">{errors.invoicePostalCode}</p>}
                       </div>
 
@@ -1524,6 +1556,9 @@ export default function OrderPage() {
                           } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
                           placeholder="東京都渋谷区○○1-2-3 ○○ビル4F"
                         />
+                        {!formData.useDeliveryAddressForInvoice && (
+                          <p className="text-text-medium text-xs mt-1">※ 番地・建物名を追記してください</p>
+                        )}
                         {errors.invoiceAddress && <p className="text-red-600 text-sm mt-2">{errors.invoiceAddress}</p>}
                       </div>
                     </div>
