@@ -606,8 +606,8 @@ export default function OrderPage() {
       window.location.href = '/';
     } catch (error) {
       console.error('Error submitting order:', error);
-      alert(`注文の送信に失敗しました。\n${error instanceof Error ? error.message : '不明なエラー'}\n\nもう一度お試しいただくか、お問い合わせください。`);
       setIsSubmitting(false);
+      alert(`注文の送信に失敗しました。\n${error instanceof Error ? error.message : '不明なエラー'}\n\nもう一度お試しいただくか、お問い合わせください。`);
     }
   };
 
