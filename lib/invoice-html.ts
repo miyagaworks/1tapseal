@@ -265,7 +265,20 @@ export function generateInvoiceHTML(order: Order): string {
     <div class="parties">
       <div class="recipient">
         <h2>請求先</h2>
-        <div class="recipient-name">${order.invoice_recipient_name || order.customer_name}${order.customer_company_name ? ' 御中' : ' 様'}</div>
+        ${(() => {
+          // 請求書情報から会社名と担当者名を取得（なければ顧客情報から）
+          const invoiceCompanyName = order.invoice_company_name || order.customer_company_name || '';
+          const invoiceContactName = order.invoice_contact_name || order.customer_name || '';
+
+          let recipientHtml = '';
+          if (invoiceCompanyName) {
+            recipientHtml += `<div class="recipient-name">${invoiceCompanyName} 御中</div>`;
+          }
+          if (invoiceContactName) {
+            recipientHtml += `<div class="recipient-name" style="font-size: 14px; margin-top: 5px;">${invoiceContactName} 様</div>`;
+          }
+          return recipientHtml || `<div class="recipient-name">${order.invoice_recipient_name || order.customer_name} 様</div>`;
+        })()}
         <div class="info-row">
           <span class="info-label">郵便番号</span>
           〒${order.invoice_postal_code || order.customer_postal_code}

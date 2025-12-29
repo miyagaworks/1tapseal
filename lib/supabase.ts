@@ -57,6 +57,8 @@ export interface Order {
 
   // 請求書情報
   invoice_number?: string;
+  invoice_company_name?: string;
+  invoice_contact_name?: string;
   invoice_recipient_name?: string;
   invoice_postal_code?: string;
   invoice_address?: string;
@@ -85,7 +87,9 @@ export interface CreateOrderInput {
   payment_amount: number;
 
   // 請求書情報（銀行振込の場合）
-  invoice_recipient_name?: string;
+  invoice_company_name?: string;
+  invoice_contact_name?: string;
+  invoice_recipient_name?: string; // 後方互換性のため残す
   invoice_postal_code?: string;
   invoice_address?: string;
   invoice_registration_number?: string;

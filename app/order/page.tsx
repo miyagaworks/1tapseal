@@ -28,7 +28,8 @@ interface FormData {
   // 支払い方法
   paymentMethod: PaymentMethod;
   // 請求書情報（銀行振込の場合）
-  invoiceRecipientName: string;
+  invoiceCompanyName: string;
+  invoiceContactName: string;
   invoicePostalCode: string;
   invoiceAddress: string;
   useDeliveryAddressForInvoice: boolean;
@@ -59,7 +60,8 @@ export default function OrderPage() {
     // 支払い方法
     paymentMethod: 'card',
     // 請求書情報
-    invoiceRecipientName: '',
+    invoiceCompanyName: '',
+    invoiceContactName: '',
     invoicePostalCode: '',
     invoiceAddress: '',
     useDeliveryAddressForInvoice: true,
@@ -314,9 +316,12 @@ export default function OrderPage() {
 
     // 銀行振込の場合、請求書情報をバリデーション
     if (formData.paymentMethod === 'bank_transfer') {
-      const invoiceRecipientName = formData.useDeliveryAddressForInvoice
-        ? (formData.companyName || formData.customerName)
-        : formData.invoiceRecipientName;
+      const invoiceCompanyName = formData.useDeliveryAddressForInvoice
+        ? formData.companyName
+        : formData.invoiceCompanyName;
+      const invoiceContactName = formData.useDeliveryAddressForInvoice
+        ? formData.customerName
+        : formData.invoiceContactName;
       const invoicePostalCode = formData.useDeliveryAddressForInvoice
         ? formData.postalCode
         : formData.invoicePostalCode;
@@ -324,9 +329,10 @@ export default function OrderPage() {
         ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`
         : formData.invoiceAddress;
 
-      if (!invoiceRecipientName.trim()) {
-        newErrors.invoiceRecipientName = '請求書宛名を入力してください';
-        if (!firstErrorField) firstErrorField = 'invoiceRecipientName';
+      // 会社名か担当者名のどちらかは必須
+      if (!invoiceCompanyName.trim() && !invoiceContactName.trim()) {
+        newErrors.invoiceContactName = '会社名または担当者名を入力してください';
+        if (!firstErrorField) firstErrorField = 'invoiceContactName';
       }
       if (!invoicePostalCode || invoicePostalCode.length !== 7) {
         newErrors.invoicePostalCode = '7桁の郵便番号を入力してください';
@@ -395,7 +401,8 @@ export default function OrderPage() {
     // 銀行振込の場合、請求書情報も必要
     if (formData.paymentMethod === 'bank_transfer') {
       if (!formData.useDeliveryAddressForInvoice) {
-        if (!formData.invoiceRecipientName.trim()) return false;
+        // 会社名か担当者名のどちらかは必須
+        if (!formData.invoiceCompanyName.trim() && !formData.invoiceContactName.trim()) return false;
         if (!formData.invoicePostalCode || formData.invoicePostalCode.length !== 7) return false;
         if (!formData.invoiceAddress.trim()) return false;
       } else {
@@ -478,15 +485,23 @@ export default function OrderPage() {
       }
 
       // 請求書情報を決定
-      const invoiceRecipientName = formData.useDeliveryAddressForInvoice
-        ? (formData.companyName || formData.customerName)
-        : formData.invoiceRecipientName;
+      const invoiceCompanyName = formData.useDeliveryAddressForInvoice
+        ? formData.companyName
+        : formData.invoiceCompanyName;
+      const invoiceContactName = formData.useDeliveryAddressForInvoice
+        ? formData.customerName
+        : formData.invoiceContactName;
       const invoicePostalCode = formData.useDeliveryAddressForInvoice
         ? formData.postalCode
         : formData.invoicePostalCode;
       const invoiceAddress = formData.useDeliveryAddressForInvoice
         ? fullAddress
         : formData.invoiceAddress;
+
+      // 請求書宛名を生成（会社名があれば会社名、なければ担当者名）
+      const invoiceRecipientName = invoiceCompanyName.trim()
+        ? invoiceCompanyName.trim() + (invoiceContactName.trim() ? ` ${invoiceContactName.trim()}` : '')
+        : invoiceContactName.trim();
 
       const orderData = {
         quantity: formData.quantity,
@@ -508,7 +523,9 @@ export default function OrderPage() {
         payment_amount: price.total,
         // 請求書情報（銀行振込の場合のみ）
         ...(formData.paymentMethod === 'bank_transfer' && {
-          invoice_recipient_name: invoiceRecipientName.trim(),
+          invoice_company_name: invoiceCompanyName.trim(),
+          invoice_contact_name: invoiceContactName.trim(),
+          invoice_recipient_name: invoiceRecipientName,
           invoice_postal_code: invoicePostalCode.trim(),
           invoice_address: invoiceAddress.trim(),
         }),
@@ -704,27 +721,37 @@ export default function OrderPage() {
             </section>
 
             {/* 請求書情報（銀行振込の場合） */}
-            {formData.paymentMethod === 'bank_transfer' && (
-              <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
-                <h2 className="text-xl font-bold text-text-dark mb-4">請求書情報</h2>
-                <div className="space-y-2 text-text-medium">
-                  <p>
-                    <span className="font-semibold">請求書宛名:</span>{' '}
-                    {formData.useDeliveryAddressForInvoice ? (formData.companyName || formData.customerName) : formData.invoiceRecipientName}
-                  </p>
-                  <p>
-                    <span className="font-semibold">郵便番号:</span>{' '}
-                    〒{formData.useDeliveryAddressForInvoice ? formData.postalCode : formData.invoicePostalCode}
-                  </p>
-                  <p>
-                    <span className="font-semibold">送付先住所:</span>{' '}
-                    {formData.useDeliveryAddressForInvoice
-                      ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`
-                      : formData.invoiceAddress}
-                  </p>
-                </div>
-              </section>
-            )}
+            {formData.paymentMethod === 'bank_transfer' && (() => {
+              const companyName = formData.useDeliveryAddressForInvoice ? formData.companyName : formData.invoiceCompanyName;
+              const contactName = formData.useDeliveryAddressForInvoice ? formData.customerName : formData.invoiceContactName;
+              return (
+                <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
+                  <h2 className="text-xl font-bold text-text-dark mb-4">請求書情報</h2>
+                  <div className="space-y-2 text-text-medium">
+                    {companyName && (
+                      <p>
+                        <span className="font-semibold">会社名:</span> {companyName} 御中
+                      </p>
+                    )}
+                    {contactName && (
+                      <p>
+                        <span className="font-semibold">{companyName ? '担当者名' : '宛名'}:</span> {contactName} 様
+                      </p>
+                    )}
+                    <p>
+                      <span className="font-semibold">郵便番号:</span>{' '}
+                      〒{formData.useDeliveryAddressForInvoice ? formData.postalCode : formData.invoicePostalCode}
+                    </p>
+                    <p>
+                      <span className="font-semibold">送付先住所:</span>{' '}
+                      {formData.useDeliveryAddressForInvoice
+                        ? `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`
+                        : formData.invoiceAddress}
+                    </p>
+                  </div>
+                </section>
+              );
+            })()}
 
             {/* 備考 */}
             {formData.remarks && (
@@ -1380,31 +1407,50 @@ export default function OrderPage() {
                             setFormData(prev => ({
                               ...prev,
                               useDeliveryAddressForInvoice: useDelivery,
-                              invoiceRecipientName: useDelivery ? (prev.companyName || prev.customerName) : prev.invoiceRecipientName,
+                              invoiceCompanyName: useDelivery ? prev.companyName : prev.invoiceCompanyName,
+                              invoiceContactName: useDelivery ? prev.customerName : prev.invoiceContactName,
                               invoicePostalCode: useDelivery ? prev.postalCode : prev.invoicePostalCode,
                               invoiceAddress: useDelivery ? `${prev.prefecture}${prev.city}${prev.address}${prev.building ? ' ' + prev.building : ''}` : prev.invoiceAddress
                             }));
                           }}
                           className="w-4 h-4"
                         />
-                        <span className="text-text-dark">お届け先住所と同じ</span>
+                        <span className="text-text-dark">お届け先情報と同じ</span>
                       </label>
+
+                      <p className="text-sm text-text-medium">
+                        ※ 会社名か担当者名のどちらか一方は必須です
+                      </p>
 
                       <div>
                         <label className="block text-text-dark font-semibold mb-2">
-                          請求書宛名 <span className="text-accent-light">*</span>
+                          会社名（御中） <span className="text-sm text-text-medium font-normal">（法人の場合）</span>
                         </label>
                         <input
                           type="text"
-                          value={formData.useDeliveryAddressForInvoice ? (formData.companyName || formData.customerName) : formData.invoiceRecipientName}
-                          onChange={(e) => setFormData(prev => ({ ...prev, invoiceRecipientName: e.target.value }))}
+                          value={formData.useDeliveryAddressForInvoice ? formData.companyName : formData.invoiceCompanyName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, invoiceCompanyName: e.target.value }))}
                           disabled={formData.useDeliveryAddressForInvoice}
-                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
-                            errors.invoiceRecipientName ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
-                          } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
+                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none border-primary-light focus:border-accent-light ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
                           placeholder="株式会社○○"
                         />
-                        {errors.invoiceRecipientName && <p className="text-red-600 text-sm mt-2">{errors.invoiceRecipientName}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-text-dark font-semibold mb-2">
+                          担当者名（様） <span className="text-sm text-text-medium font-normal">（個人または担当者）</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.useDeliveryAddressForInvoice ? formData.customerName : formData.invoiceContactName}
+                          onChange={(e) => setFormData(prev => ({ ...prev, invoiceContactName: e.target.value }))}
+                          disabled={formData.useDeliveryAddressForInvoice}
+                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                            errors.invoiceContactName ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                          } ${formData.useDeliveryAddressForInvoice ? 'bg-gray-100' : ''}`}
+                          placeholder="山田太郎"
+                        />
+                        {errors.invoiceContactName && <p className="text-red-600 text-sm mt-2">{errors.invoiceContactName}</p>}
                       </div>
 
                       <div>
