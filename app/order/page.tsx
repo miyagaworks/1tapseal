@@ -68,6 +68,50 @@ export default function OrderPage() {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [postalCodeSuggestions, setPostalCodeSuggestions] = useState<string[]>([]);
+  const [shorteningUrl, setShorteningUrl] = useState<string | null>(null); // 短縮中のURL識別子
+
+  // URL短縮ヘルパー関数
+  const shortenUrl = async (url: string): Promise<string | null> => {
+    if (!url || url.length <= 130) return null;
+
+    try {
+      const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
+      const shortUrl = await response.text();
+      if (shortUrl && shortUrl.startsWith('http')) {
+        return shortUrl;
+      }
+      return null;
+    } catch (error) {
+      console.error('URL短縮エラー:', error);
+      return null;
+    }
+  };
+
+  // 自動URL短縮（onBlur時に呼び出し）
+  const handleUrlBlur = async (url: string, index: number) => {
+    if (url.length > 130) {
+      setShorteningUrl(`url_${index}`);
+      const shortUrl = await shortenUrl(url);
+      if (shortUrl) {
+        const newUrls = [...formData.urls];
+        newUrls[index] = shortUrl;
+        setFormData(prev => ({ ...prev, urls: newUrls }));
+      }
+      setShorteningUrl(null);
+    }
+  };
+
+  // 単一URL短縮（onBlur時に呼び出し）
+  const handleSingleUrlBlur = async (url: string) => {
+    if (url.length > 130) {
+      setShorteningUrl('singleUrl');
+      const shortUrl = await shortenUrl(url);
+      if (shortUrl) {
+        setFormData(prev => ({ ...prev, singleUrl: shortUrl }));
+      }
+      setShorteningUrl(null);
+    }
+  };
 
   // 価格計算
   const calculatePrice = (qty: number) => {
@@ -166,18 +210,30 @@ export default function OrderPage() {
 
     // URLチェック
     if (formData.quantity <= 10) {
-      const hasUrl = formData.urls.some(url => url.trim() !== '');
-      if (!hasUrl) {
-        newErrors.urls = '少なくとも1つのURLを入力してください';
-        if (!firstErrorField) firstErrorField = 'urls';
-      }
-      // URL形式チェック（半角英数字）
-      formData.urls.forEach((url, idx) => {
-        if (url && !/^[a-zA-Z0-9:\/\.\-_?=&#%]+$/.test(url)) {
-          newErrors[`url_${idx}`] = '半角英数字のみ入力可能です';
+      // 2枚以上で「全て同じURL」を選択した場合
+      if (formData.quantity >= 2 && formData.useSingleUrl) {
+        if (!formData.singleUrl) {
+          newErrors.singleUrl = 'URLを入力してください';
+          if (!firstErrorField) firstErrorField = 'singleUrl';
+        } else if (!/^[a-zA-Z0-9:\/\.\-_?=&#%]+$/.test(formData.singleUrl)) {
+          newErrors.singleUrl = '半角英数字のみ入力可能です';
+          if (!firstErrorField) firstErrorField = 'singleUrl';
+        }
+      } else {
+        // 1枚の場合、または個別指定を選択した場合
+        const hasUrl = formData.urls.some(url => url.trim() !== '');
+        if (!hasUrl) {
+          newErrors.urls = '少なくとも1つのURLを入力してください';
           if (!firstErrorField) firstErrorField = 'urls';
         }
-      });
+        // URL形式チェック（半角英数字）
+        formData.urls.forEach((url, idx) => {
+          if (url && !/^[a-zA-Z0-9:\/\.\-_?=&#%]+$/.test(url)) {
+            newErrors[`url_${idx}`] = '半角英数字のみ入力可能です';
+            if (!firstErrorField) firstErrorField = 'urls';
+          }
+        });
+      }
     } else {
       // 11枚以上の場合：単一URL、Excelファイル、またはスプレッドシートURLが必要
       if (formData.useSingleUrl) {
@@ -374,10 +430,16 @@ export default function OrderPage() {
       let orderMemo = '';
 
       if (formData.quantity <= 10) {
-        // 10枚以下：複数URL
-        const filledUrls = formData.urls.filter(url => url.trim() !== '');
-        orderUrl = filledUrls.length > 0 ? filledUrls[0].trim() : '';
-        orderMemo = `複数URL（${filledUrls.length}件）:\n${formData.urls.map((url, i) => url.trim() ? `${i+1}. ${url}${formData.urlMemos[i] ? ' (' + formData.urlMemos[i] + ')' : ''}` : '').filter(Boolean).join('\n')}`;
+        // 2枚以上で「全て同じURL」を選択した場合
+        if (formData.quantity >= 2 && formData.useSingleUrl) {
+          orderUrl = formData.singleUrl.trim();
+          orderMemo = `全てのシールに同じURLを使用（${formData.quantity}枚）`;
+        } else {
+          // 1枚の場合、または個別指定を選択した場合
+          const filledUrls = formData.urls.filter(url => url.trim() !== '');
+          orderUrl = filledUrls.length > 0 ? filledUrls[0].trim() : '';
+          orderMemo = `複数URL（${filledUrls.length}件）:\n${formData.urls.map((url, i) => url.trim() ? `${i+1}. ${url}${formData.urlMemos[i] ? ' (' + formData.urlMemos[i] + ')' : ''}` : '').filter(Boolean).join('\n')}`;
+        }
       } else {
         // 11枚以上
         if (formData.useSingleUrl) {
@@ -555,23 +617,31 @@ export default function OrderPage() {
             <section className="mb-8 bg-white rounded-lg shadow-lg p-6 border border-primary-light/30">
               <h2 className="text-xl font-bold text-text-dark mb-4">書き込みURL情報</h2>
               {formData.quantity <= 10 ? (
-                <div className="space-y-3">
-                  {formData.urls.map((url, idx) => url && (
-                    <div key={idx} className="border-b pb-2">
-                      <div className="text-text-medium">
-                        <span className="font-semibold">{idx + 1}枚目:</span>
+                formData.quantity >= 2 && formData.useSingleUrl ? (
+                  <div className="text-text-medium">
+                    <p className="mb-2"><span className="font-semibold">全て同じURL:</span></p>
+                    <p className="ml-4">{formData.singleUrl}</p>
+                    <p className="mt-2 text-sm text-text-medium">（全{formData.quantity}枚に同じURLを書き込みます）</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {formData.urls.map((url, idx) => url && (
+                      <div key={idx} className="border-b pb-2">
+                        <div className="text-text-medium">
+                          <span className="font-semibold">{idx + 1}枚目:</span>
+                        </div>
+                        <div className="ml-4 mt-1">
+                          <p className="text-sm"><span className="font-semibold">URL:</span> {url}</p>
+                          {formData.urlMemos[idx] && (
+                            <p className="text-sm text-text-medium mt-1">
+                              <span className="font-semibold">識別メモ:</span> {formData.urlMemos[idx]}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="ml-4 mt-1">
-                        <p className="text-sm"><span className="font-semibold">URL:</span> {url}</p>
-                        {formData.urlMemos[idx] && (
-                          <p className="text-sm text-text-medium mt-1">
-                            <span className="font-semibold">識別メモ:</span> {formData.urlMemos[idx]}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )
               ) : (
                 <div className="text-text-medium">
                   {formData.useSingleUrl ? (
@@ -770,45 +840,121 @@ export default function OrderPage() {
 
               {formData.quantity <= 10 ? (
                 <div className="space-y-3">
-                  <div className="bg-gradient-to-r from-primary-light/20 to-primary/10 rounded-lg p-4 mb-4">
-                    <p className="text-text-dark text-sm mb-3">
-                      各シールに書き込むURLとメモを入力してください（半角英数字のみ）
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (formData.urls[0]) {
-                          const newUrls = Array(formData.quantity).fill(formData.urls[0]);
-                          setFormData(prev => ({ ...prev, urls: newUrls }));
-                        }
-                      }}
-                      className="flex items-center gap-2 bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
-                    >
-                      <MdCheck className="text-lg" />
-                      1枚目のURLを全てに適用
-                    </button>
-                  </div>
+                  {/* 2枚以上の場合、全て同じURLオプションを表示 */}
+                  {formData.quantity >= 2 && (
+                    <div className="bg-gradient-to-r from-primary-light/20 to-primary/10 rounded-lg p-4 mb-4">
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="urlMode"
+                            checked={formData.useSingleUrl}
+                            onChange={() => setFormData(prev => ({ ...prev, useSingleUrl: true }))}
+                            className="w-5 h-5 text-accent-light"
+                          />
+                          <span className="text-text-dark font-semibold">全て同じURLを使用</span>
+                        </label>
+                        {formData.useSingleUrl && (
+                          <div className="ml-8">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={formData.singleUrl}
+                                onChange={(e) => setFormData(prev => ({ ...prev, singleUrl: e.target.value }))}
+                                onBlur={(e) => handleSingleUrlBlur(e.target.value)}
+                                placeholder="https://example.com"
+                                disabled={shorteningUrl === 'singleUrl'}
+                                className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                                  errors.singleUrl ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                                } ${shorteningUrl === 'singleUrl' ? 'bg-gray-100' : ''}`}
+                              />
+                              {shorteningUrl === 'singleUrl' && (
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                  <div className="animate-spin h-5 w-5 border-2 border-accent-light border-t-transparent rounded-full"></div>
+                                </div>
+                              )}
+                            </div>
+                            {shorteningUrl === 'singleUrl' && (
+                              <p className="text-accent-light text-sm mt-1">URLを自動短縮中...</p>
+                            )}
+                            {errors.singleUrl && <p className="text-red-600 text-sm mt-1">{errors.singleUrl}</p>}
+                            <p className="text-text-medium text-sm mt-2">
+                              全{formData.quantity}枚のシールに同じURLを書き込みます
+                              {formData.singleUrl.length > 130 && <span className="text-amber-600 ml-2">（130文字超過時は自動短縮）</span>}
+                            </p>
+                          </div>
+                        )}
 
-                  {formData.urls.map((url, index) => (
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="urlMode"
+                            checked={!formData.useSingleUrl}
+                            onChange={() => setFormData(prev => ({ ...prev, useSingleUrl: false }))}
+                            className="w-5 h-5 text-accent-light"
+                          />
+                          <span className="text-text-dark font-semibold">シールごとに異なるURLを指定</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 個別URL入力（1枚の場合、または個別指定を選択した場合） */}
+                  {(formData.quantity === 1 || !formData.useSingleUrl) && (
+                    <>
+                      {formData.quantity >= 2 && (
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                          <p className="text-text-dark text-sm mb-3">
+                            各シールに書き込むURLとメモを入力してください（半角英数字のみ）
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (formData.urls[0]) {
+                                const newUrls = Array(formData.quantity).fill(formData.urls[0]);
+                                setFormData(prev => ({ ...prev, urls: newUrls }));
+                              }
+                            }}
+                            className="flex items-center gap-2 bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
+                          >
+                            <MdCheck className="text-lg" />
+                            1枚目のURLを全てに適用
+                          </button>
+                        </div>
+                      )}
+
+                      {formData.urls.map((url, index) => (
                     <div key={index}>
                       <div className="flex gap-2 items-start">
                         <span className="text-text-medium font-semibold w-16 pt-2">{index + 1}枚目:</span>
                         <div className="flex-1 space-y-2">
                           <div>
-                            <label className="block text-xs text-text-medium mb-1">URL</label>
-                            <input
-                              type="text"
-                              value={url}
-                              onChange={(e) => {
-                                const newUrls = [...formData.urls];
-                                newUrls[index] = e.target.value;
-                                setFormData(prev => ({ ...prev, urls: newUrls }));
-                              }}
-                              placeholder="https://example.com"
-                              className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
-                                errors[`url_${index}`] || errors.urls ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
-                              }`}
-                            />
+                            <label className="block text-xs text-text-medium mb-1">
+                              URL
+                              {shorteningUrl === `url_${index}` && <span className="text-accent-light ml-2">短縮中...</span>}
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={url}
+                                onChange={(e) => {
+                                  const newUrls = [...formData.urls];
+                                  newUrls[index] = e.target.value;
+                                  setFormData(prev => ({ ...prev, urls: newUrls }));
+                                }}
+                                onBlur={(e) => handleUrlBlur(e.target.value, index)}
+                                disabled={shorteningUrl === `url_${index}`}
+                                placeholder="https://example.com"
+                                className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                                  errors[`url_${index}`] || errors.urls ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                                } ${shorteningUrl === `url_${index}` ? 'bg-gray-100' : ''}`}
+                              />
+                              {shorteningUrl === `url_${index}` && (
+                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                  <div className="animate-spin h-5 w-5 border-2 border-accent-light border-t-transparent rounded-full"></div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                           <div>
                             <label className="block text-xs text-text-medium mb-1">
@@ -832,39 +978,19 @@ export default function OrderPage() {
                           </div>
                         </div>
                       </div>
-                      {url.length > 130 && (
+                      {url.length > 130 && shorteningUrl !== `url_${index}` && (
                         <div className="ml-16 mt-2 bg-amber-50 border-l-4 border-amber-400 p-3 rounded">
-                          <p className="text-amber-700 text-sm mb-2">
-                            ⚠️ URLが130文字を超えています（現在{url.length}文字）。NFCタグに記録できない可能性があります。
+                          <p className="text-amber-700 text-sm">
+                            ⚠️ URLが130文字を超えています（現在{url.length}文字）。入力欄を離れると自動で短縮されます。
                           </p>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              try {
-                                const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
-                                const shortUrl = await response.text();
-                                if (shortUrl && shortUrl.startsWith('http')) {
-                                  const newUrls = [...formData.urls];
-                                  newUrls[index] = shortUrl;
-                                  setFormData(prev => ({ ...prev, urls: newUrls }));
-                                  alert(`URLを短縮しました:\n${shortUrl}`);
-                                } else {
-                                  alert('URL短縮に失敗しました。URLが正しいか確認してください。');
-                                }
-                              } catch (error) {
-                                alert('URL短縮サービスに接続できませんでした。');
-                              }
-                            }}
-                            className="bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
-                          >
-                            URLを短縮する
-                          </button>
                         </div>
                       )}
                       {errors[`url_${index}`] && <p className="text-red-600 text-sm mt-1 ml-16">{errors[`url_${index}`]}</p>}
                     </div>
                   ))}
                   {errors.urls && <p className="text-red-600 text-sm mt-2">{errors.urls}</p>}
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -891,45 +1017,35 @@ export default function OrderPage() {
 
                     {formData.useSingleUrl && (
                       <div className="ml-6">
-                        <input
-                          type="text"
-                          value={formData.singleUrl}
-                          onChange={(e) => {
-                            // 半角英数字のみ許可
-                            const value = e.target.value.replace(/[^a-zA-Z0-9:\/\.\-_?=&#%]/g, '');
-                            setFormData(prev => ({ ...prev, singleUrl: value }));
-                          }}
-                          placeholder="https://example.com"
-                          className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
-                            errors.singleUrl ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
-                          }`}
-                        />
-                        {formData.singleUrl.length > 130 && (
-                          <div className="mt-2 bg-amber-50 border-l-4 border-amber-400 p-3 rounded">
-                            <p className="text-amber-700 text-sm mb-2">
-                              ⚠️ URLが130文字を超えています（現在{formData.singleUrl.length}文字）。NFCタグに記録できない可能性があります。
-                            </p>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(formData.singleUrl)}`);
-                                  const shortUrl = await response.text();
-                                  if (shortUrl && shortUrl.startsWith('http')) {
-                                    setFormData(prev => ({ ...prev, singleUrl: shortUrl }));
-                                    alert(`URLを短縮しました:\n${shortUrl}`);
-                                  } else {
-                                    alert('URL短縮に失敗しました。URLが正しいか確認してください。');
-                                  }
-                                } catch (error) {
-                                  alert('URL短縮サービスに接続できませんでした。');
-                                }
-                              }}
-                              className="bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm"
-                            >
-                              URLを短縮する
-                            </button>
-                          </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={formData.singleUrl}
+                            onChange={(e) => {
+                              // 半角英数字のみ許可
+                              const value = e.target.value.replace(/[^a-zA-Z0-9:\/\.\-_?=&#%]/g, '');
+                              setFormData(prev => ({ ...prev, singleUrl: value }));
+                            }}
+                            onBlur={(e) => handleSingleUrlBlur(e.target.value)}
+                            disabled={shorteningUrl === 'singleUrl'}
+                            placeholder="https://example.com"
+                            className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
+                              errors.singleUrl ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
+                            } ${shorteningUrl === 'singleUrl' ? 'bg-gray-100' : ''}`}
+                          />
+                          {shorteningUrl === 'singleUrl' && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                              <div className="animate-spin h-5 w-5 border-2 border-accent-light border-t-transparent rounded-full"></div>
+                            </div>
+                          )}
+                        </div>
+                        {shorteningUrl === 'singleUrl' && (
+                          <p className="text-accent-light text-sm mt-1">URLを自動短縮中...</p>
+                        )}
+                        {formData.singleUrl.length > 130 && !shorteningUrl && (
+                          <p className="text-amber-600 text-sm mt-1">
+                            ※ 130文字を超えているため、入力欄を離れると自動で短縮されます
+                          </p>
                         )}
                         {errors.singleUrl && <p className="text-red-600 text-sm mt-2">{errors.singleUrl}</p>}
                       </div>
