@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 
 // 入金確認処理
 export async function POST(
@@ -8,9 +8,10 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const supabaseAdmin = getSupabaseAdmin();
 
     // 注文を取得
-    const { data: order, error: fetchError } = await supabase
+    const { data: order, error: fetchError } = await supabaseAdmin
       .from('orders')
       .select('*')
       .eq('id', id)
@@ -40,7 +41,7 @@ export async function POST(
     }
 
     // 入金確認処理
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('orders')
       .update({
         payment_status: 'paid',
