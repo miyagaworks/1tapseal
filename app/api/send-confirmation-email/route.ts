@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { generateInvoiceHTML } from '@/lib/invoice-html';
+import { generatePDFFromHTML } from '@/lib/pdf-generator';
+import { Order } from '@/lib/supabase';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN_EMAIL = 'order@1tapseal.com';
@@ -105,11 +108,38 @@ export async function POST(request: NextRequest) {
 
     // 銀行振込の場合のメッセージ
     const paymentMessage = paymentMethod === 'bank_transfer'
-      ? '<p>上記の口座へお振込みをお願いいたします。ご入金確認後、製作を開始いたします。</p>'
+      ? '<p>上記の口座へお振込みをお願いいたします。ご入金確認後、製作を開始いたします。</p><p><strong>請求書PDFを添付しております。</strong>ご確認ください。</p>'
       : '<p>ご注文内容の製作を開始いたします。発送準備が整い次第、追跡番号とともにメールにてご連絡いたします。</p>';
 
+    // 銀行振込の場合、請求書PDFを生成
+    let invoicePdfBuffer: Buffer | null = null;
+    if (paymentMethod === 'bank_transfer' && invoiceNumber) {
+      try {
+        // 注文オブジェクトを構築
+        const orderForInvoice: Partial<Order> = {
+          invoice_number: invoiceNumber,
+          invoice_recipient_name: invoiceRecipientName || customerName,
+          invoice_postal_code: invoicePostalCode || customerPostalCode,
+          invoice_address: invoiceAddress || customerAddress,
+          customer_name: customerName,
+          customer_company_name: customerCompanyName,
+          customer_postal_code: customerPostalCode,
+          customer_address: customerAddress,
+          quantity: quantity,
+          created_at: orderDate,
+        };
+
+        const invoiceHtml = generateInvoiceHTML(orderForInvoice as Order);
+        invoicePdfBuffer = await generatePDFFromHTML(invoiceHtml);
+        console.log('Invoice PDF generated successfully');
+      } catch (pdfError) {
+        console.error('Error generating invoice PDF:', pdfError);
+        // PDFの生成に失敗しても、メールは送信する
+      }
+    }
+
     // 顧客向けメール送信
-    const { error: customerError } = await resend.emails.send({
+    const emailOptions: Parameters<typeof resend.emails.send>[0] = {
       from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
       to: customerEmail,
       subject: emailSubject,
@@ -240,7 +270,19 @@ export async function POST(request: NextRequest) {
         </body>
         </html>
       `,
-    });
+    };
+
+    // PDFが生成できた場合は添付
+    if (invoicePdfBuffer) {
+      emailOptions.attachments = [
+        {
+          filename: `請求書_${invoiceNumber}.pdf`,
+          content: invoicePdfBuffer,
+        },
+      ];
+    }
+
+    const { error: customerError } = await resend.emails.send(emailOptions);
 
     if (customerError) {
       console.error('Customer email error:', customerError);

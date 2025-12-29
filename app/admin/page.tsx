@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Order, supabase } from "@/lib/supabase";
+import * as XLSX from "xlsx";
 import {
   MdContentCopy,
   MdEmail,
@@ -25,6 +26,10 @@ import {
   MdAccountBalance,
   MdCreditCard,
   MdReceipt,
+  MdCalendarMonth,
+  MdTableChart,
+  MdPictureAsPdf,
+  MdDelete,
 } from "react-icons/md";
 
 export default function AdminPage() {
@@ -39,6 +44,12 @@ export default function AdminPage() {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [viewMode, setViewMode] = useState<"orders" | "sales">("orders");
 
   // selectedOrderIdから注文を取得
   const selectedOrder = orders.find(order => order.id === selectedOrderId);
@@ -192,6 +203,36 @@ export default function AdminPage() {
     }
   };
 
+  // 注文削除処理
+  const handleDeleteOrder = async (order: Order) => {
+    const confirmMessage = `以下の注文を削除しますか？\n\n注文番号: ${order.id.slice(0, 8)}\n顧客名: ${order.customer_name}\n数量: ${order.quantity}枚\n\nこの操作は取り消せません。`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setDeletingOrder(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${order.id}/delete`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "注文の削除に失敗しました");
+      }
+
+      alert("注文を削除しました。");
+      setSelectedOrderId(null);
+      fetchOrders();
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      alert(`エラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
+    } finally {
+      setDeletingOrder(false);
+    }
+  };
+
   // 支払い方法の表示
   const getPaymentMethodLabel = (method: string | null | undefined) => {
     if (!method) return "-";
@@ -259,6 +300,206 @@ export default function AdminPage() {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
+  // 月別注文フィルタリング
+  const monthlyOrders = useMemo(() => {
+    return orders.filter(order => {
+      const orderDate = new Date(order.created_at);
+      const orderMonth = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, "0")}`;
+      return orderMonth === selectedMonth;
+    });
+  }, [orders, selectedMonth]);
+
+  // 売上集計
+  const salesSummary = useMemo(() => {
+    const paidOrders = monthlyOrders.filter(o => o.payment_status === "paid");
+    const cardOrders = paidOrders.filter(o => o.payment_method === "card");
+    const bankOrders = paidOrders.filter(o => o.payment_method === "bank_transfer");
+
+    return {
+      totalOrders: monthlyOrders.length,
+      paidOrders: paidOrders.length,
+      unpaidOrders: monthlyOrders.filter(o => o.payment_status !== "paid").length,
+      // 受注金額（全注文）
+      totalOrderAmount: monthlyOrders.reduce((sum, o) => sum + (o.payment_amount || 0), 0),
+      // 入金済み売上
+      totalRevenue: paidOrders.reduce((sum, o) => sum + (o.payment_amount || 0), 0),
+      cardRevenue: cardOrders.reduce((sum, o) => sum + (o.payment_amount || 0), 0),
+      bankRevenue: bankOrders.reduce((sum, o) => sum + (o.payment_amount || 0), 0),
+      // 数量
+      totalQuantity: monthlyOrders.reduce((sum, o) => sum + o.quantity, 0),
+      paidQuantity: paidOrders.reduce((sum, o) => sum + o.quantity, 0),
+    };
+  }, [monthlyOrders]);
+
+  // 利用可能な月リストを生成
+  const availableMonths = useMemo(() => {
+    const months = new Set<string>();
+    orders.forEach(order => {
+      const date = new Date(order.created_at);
+      months.add(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+    });
+    // 現在の月も追加
+    const now = new Date();
+    months.add(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+    return Array.from(months).sort().reverse();
+  }, [orders]);
+
+  // 表示する注文リスト（ビューモードに応じて切り替え）
+  const displayOrders = useMemo(() => {
+    if (viewMode === "sales") {
+      // 売上集計: 選択した月の注文を表示（フィルター適用）
+      return (filter === "all"
+        ? monthlyOrders
+        : monthlyOrders.filter(order => order.status === filter)
+      ).sort((a, b) => {
+        const statusPriority: Record<string, number> = {
+          pending: 1,
+          processing: 2,
+          shipped: 3,
+          completed: 4,
+        };
+        const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
+        if (priorityDiff !== 0) return priorityDiff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } else {
+      // 注文一覧: 全注文を表示（フィルターのみ適用）
+      return filteredOrders;
+    }
+  }, [viewMode, monthlyOrders, filteredOrders, filter]);
+
+  // Excelエクスポート
+  const exportToExcel = () => {
+    const data = monthlyOrders.map(order => ({
+      "注文ID": order.id,
+      "注文日時": new Date(order.created_at).toLocaleString("ja-JP"),
+      "顧客名": order.customer_name,
+      "会社名": order.customer_company_name || "",
+      "メール": order.customer_email,
+      "電話番号": order.customer_phone,
+      "郵便番号": order.customer_postal_code,
+      "住所": `${order.customer_prefecture}${order.customer_city}${order.customer_street_address}${order.customer_building || ""}`,
+      "数量": order.quantity,
+      "URL": order.url,
+      "支払い方法": order.payment_method === "card" ? "カード決済" : order.payment_method === "bank_transfer" ? "銀行振込" : "",
+      "金額": order.payment_amount || 0,
+      "入金状況": order.payment_status === "paid" ? "入金済" : order.payment_status === "pending" ? "処理中" : "未入金",
+      "ステータス": order.status === "pending" ? "未処理" : order.status === "processing" ? "処理中" : order.status === "shipped" ? "発送済" : "完了",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "注文一覧");
+
+    // 列幅を設定
+    ws["!cols"] = [
+      { wch: 36 }, // 注文ID
+      { wch: 20 }, // 注文日時
+      { wch: 15 }, // 顧客名
+      { wch: 20 }, // 会社名
+      { wch: 25 }, // メール
+      { wch: 15 }, // 電話番号
+      { wch: 10 }, // 郵便番号
+      { wch: 40 }, // 住所
+      { wch: 6 },  // 数量
+      { wch: 40 }, // URL
+      { wch: 12 }, // 支払い方法
+      { wch: 10 }, // 金額
+      { wch: 10 }, // 入金状況
+      { wch: 10 }, // ステータス
+    ];
+
+    XLSX.writeFile(wb, `注文一覧_${selectedMonth}.xlsx`);
+  };
+
+  // PDFエクスポート（印刷用HTMLを生成）
+  const exportToPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("ポップアップがブロックされています。許可してください。");
+      return;
+    }
+
+    const [year, month] = selectedMonth.split("-");
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>売上レポート ${year}年${month}月</title>
+        <style>
+          body { font-family: 'Hiragino Kaku Gothic ProN', sans-serif; padding: 20px; font-size: 12px; }
+          h1 { font-size: 18px; margin-bottom: 20px; }
+          .summary { margin-bottom: 30px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
+          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+          .summary-item { text-align: center; }
+          .summary-label { font-size: 11px; color: #666; }
+          .summary-value { font-size: 18px; font-weight: bold; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background: #f0f0f0; font-weight: bold; }
+          tr:nth-child(even) { background: #fafafa; }
+          .text-right { text-align: right; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>売上レポート ${year}年${month}月</h1>
+        <div class="summary">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <div class="summary-label">総注文数</div>
+              <div class="summary-value">${salesSummary.totalOrders}件</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">入金済み</div>
+              <div class="summary-value">${salesSummary.paidOrders}件</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">受注金額</div>
+              <div class="summary-value">¥${salesSummary.totalOrderAmount.toLocaleString()}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">入金済み売上</div>
+              <div class="summary-value">¥${salesSummary.totalRevenue.toLocaleString()}</div>
+            </div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>注文日</th>
+              <th>顧客名</th>
+              <th>数量</th>
+              <th>支払い方法</th>
+              <th class="text-right">金額</th>
+              <th>入金</th>
+              <th>ステータス</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${monthlyOrders.map(order => `
+              <tr>
+                <td>${new Date(order.created_at).toLocaleDateString("ja-JP")}</td>
+                <td>${order.customer_name}</td>
+                <td>${order.quantity}枚</td>
+                <td>${order.payment_method === "card" ? "カード" : order.payment_method === "bank_transfer" ? "振込" : "-"}</td>
+                <td class="text-right">¥${(order.payment_amount || 0).toLocaleString()}</td>
+                <td>${order.payment_status === "paid" ? "済" : order.payment_status === "pending" ? "処理中" : "未"}</td>
+                <td>${order.status === "pending" ? "未処理" : order.status === "processing" ? "処理中" : order.status === "shipped" ? "発送済" : "完了"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        <script>window.onload = function() { window.print(); }</script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   // ステータスバッジのスタイル
   const getStatusBadge = (status: Order["status"]) => {
     const styles = {
@@ -310,6 +551,121 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
+        {/* ヘッダー */}
+        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <h1 className="text-2xl font-bold text-text-dark">注文管理</h1>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* 月選択 */}
+              <div className="flex items-center gap-2">
+                <MdCalendarMonth className="text-xl text-gray-600" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  {availableMonths.map(month => {
+                    const [year, m] = month.split("-");
+                    return (
+                      <option key={month} value={month}>
+                        {year}年{parseInt(m)}月
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* 表示モード切替 */}
+              <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <button
+                  onClick={() => setViewMode("orders")}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    viewMode === "orders"
+                      ? "bg-accent text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  <MdTableChart className="inline mr-1" />
+                  注文一覧
+                </button>
+                <button
+                  onClick={() => setViewMode("sales")}
+                  className={`px-4 py-2 font-medium transition-colors ${
+                    viewMode === "sales"
+                      ? "bg-accent text-white"
+                      : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  売上集計
+                </button>
+              </div>
+
+              {/* エクスポートボタン */}
+              <div className="flex gap-2">
+                <button
+                  onClick={exportToExcel}
+                  className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <MdDownload />
+                  Excel
+                </button>
+                <button
+                  onClick={exportToPDF}
+                  className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  <MdPictureAsPdf />
+                  PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 売上サマリー */}
+        {viewMode === "sales" && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-lg font-bold text-text-dark mb-4">
+              {selectedMonth.split("-")[0]}年{parseInt(selectedMonth.split("-")[1])}月 売上サマリー
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">総注文数</p>
+                <p className="text-2xl font-bold text-blue-600">{salesSummary.totalOrders}件</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">入金済</p>
+                <p className="text-2xl font-bold text-green-600">{salesSummary.paidOrders}件</p>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">未入金</p>
+                <p className="text-2xl font-bold text-yellow-600">{salesSummary.unpaidOrders}件</p>
+              </div>
+              <div className="bg-orange-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">総枚数</p>
+                <p className="text-2xl font-bold text-orange-600">{salesSummary.totalQuantity}枚</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-gray-100 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">受注金額</p>
+                <p className="text-2xl font-bold text-gray-700">¥{salesSummary.totalOrderAmount.toLocaleString()}</p>
+              </div>
+              <div className="bg-purple-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">入金済み売上</p>
+                <p className="text-2xl font-bold text-purple-600">¥{salesSummary.totalRevenue.toLocaleString()}</p>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">カード売上</p>
+                <p className="text-2xl font-bold text-indigo-600">¥{salesSummary.cardRevenue.toLocaleString()}</p>
+              </div>
+              <div className="bg-teal-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-gray-600 mb-1">振込売上</p>
+                <p className="text-2xl font-bold text-teal-600">¥{salesSummary.bankRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* フィルター */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6 flex gap-2 flex-wrap items-center justify-between">
           <div className="flex gap-2 flex-wrap">
@@ -353,8 +709,10 @@ export default function AdminPage() {
         {/* 注文一覧 */}
         {loading ? (
           <div className="text-center py-12">読み込み中...</div>
-        ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-12 text-gray-900">注文がありません</div>
+        ) : displayOrders.length === 0 ? (
+          <div className="text-center py-12 text-gray-900">
+            {viewMode === "sales" ? `${selectedMonth.split("-")[0]}年${parseInt(selectedMonth.split("-")[1])}月の注文がありません` : "注文がありません"}
+          </div>
         ) : selectedOrderId ? (
           // 詳細表示
           (() => {
@@ -789,13 +1147,21 @@ export default function AdminPage() {
                 </div>
 
                 {/* アクションボタン */}
-                <div className="flex gap-2 pt-4 border-t">
+                <div className="flex gap-2 pt-4 border-t justify-between">
                   <button
                     onClick={() => setShowTrackingModal(true)}
                     className="flex items-center gap-2 bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
                   >
                     <MdEmail />
                     発送完了メール送信
+                  </button>
+                  <button
+                    onClick={() => handleDeleteOrder(order)}
+                    disabled={deletingOrder}
+                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    <MdDelete />
+                    {deletingOrder ? "削除中..." : "注文を削除"}
                   </button>
                 </div>
               </div>
@@ -817,7 +1183,7 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((order) => (
+                {displayOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="border-t border-gray-200 hover:bg-gray-50 cursor-pointer"

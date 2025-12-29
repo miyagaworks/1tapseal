@@ -10,16 +10,19 @@
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.0.2",
+    "@sparticuz/chromium": "^143.0.0",
     "@stripe/stripe-js": "^8.6.0",
     "@supabase/supabase-js": "^2.77.0",
     "jspdf": "^3.0.4",
     "next": "^16.0.7",
     "pdfmake": "^0.2.21",
+    "puppeteer-core": "^24.34.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-icons": "^5.5.0",
     "resend": "^6.6.0",
-    "stripe": "^20.1.0"
+    "stripe": "^20.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
