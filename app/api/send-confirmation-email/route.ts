@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     // 顧客向けメール送信
     const emailOptions: Parameters<typeof resend.emails.send>[0] = {
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
+      from: `ワンタップシール <${process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com'}>`,
       to: customerEmail,
       subject: emailSubject,
       html: `
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
 
     // 管理者向けメール送信
     const { error: adminError } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
+      from: `ワンタップシール <${process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com'}>`,
       to: ADMIN_EMAIL,
       subject: adminSubject,
       html: `

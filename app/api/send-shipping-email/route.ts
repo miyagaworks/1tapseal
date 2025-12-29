@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     // メール送信
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com',
+      from: `ワンタップシール <${process.env.RESEND_FROM_EMAIL || 'noreply@1tapseal.com'}>`,
       to: customerEmail,
       subject: '【ワンタップシール】商品を発送いたしました',
       html: `
