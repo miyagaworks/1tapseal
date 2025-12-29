@@ -301,8 +301,11 @@ export default function OrderPage() {
       if (!firstErrorField) firstErrorField = 'customerName';
     }
 
-    // 郵便番号（任意、入力された場合は7桁チェック）
-    if (formData.postalCode && formData.postalCode.length !== 7) {
+    // 郵便番号（必須、7桁）
+    if (!formData.postalCode) {
+      newErrors.postalCode = '郵便番号を入力してください';
+      if (!firstErrorField) firstErrorField = 'postalCode';
+    } else if (formData.postalCode.length !== 7) {
       newErrors.postalCode = '7桁の郵便番号を入力してください';
       if (!firstErrorField) firstErrorField = 'postalCode';
     }
@@ -425,6 +428,7 @@ export default function OrderPage() {
 
     // 顧客情報
     if (!formData.customerName.trim()) return false;
+    if (!formData.postalCode || formData.postalCode.length !== 7) return false;
     if (!formData.prefecture) return false;
     if (!formData.city) return false;
     if (!formData.address.trim()) return false;
@@ -438,9 +442,6 @@ export default function OrderPage() {
         if (!formData.invoiceCompanyName.trim() && !formData.invoiceContactName.trim()) return false;
         if (!formData.invoicePostalCode || formData.invoicePostalCode.length !== 7) return false;
         if (!formData.invoiceAddress.trim()) return false;
-      } else {
-        // 配送先を使う場合、配送先情報が必要
-        if (!formData.postalCode || formData.postalCode.length !== 7) return false;
       }
     }
 
@@ -1248,7 +1249,7 @@ export default function OrderPage() {
 
                 <div>
                   <label className="block text-text-dark font-semibold mb-2">
-                    郵便番号 <span className="text-sm text-text-medium font-normal">（任意・ハイフンなし7桁）</span>
+                    郵便番号 <span className="text-accent-light">*</span> <span className="text-sm text-text-medium font-normal">（ハイフンなし7桁）</span>
                   </label>
                   <div className="flex gap-2 items-start">
                     <div className="flex-1">
