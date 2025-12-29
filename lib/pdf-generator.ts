@@ -20,6 +20,12 @@ export async function generatePDFFromHTML(html: string): Promise<Buffer> {
       waitUntil: 'networkidle0',
     });
 
+    // Google Fontsの読み込みを待機
+    await page.evaluateHandle('document.fonts.ready');
+
+    // 追加の待機時間（フォントのレンダリング完了用）
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // PDFを生成
     const pdfBuffer = await page.pdf({
       format: 'A4',

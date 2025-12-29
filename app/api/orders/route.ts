@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
           payment_status: body.payment_method === 'bank_transfer' ? 'pending' : 'unpaid',
           // 請求書情報（銀行振込の場合）
           invoice_number: invoiceNumber,
+          invoice_company_name: body.invoice_company_name || null,
+          invoice_contact_name: body.invoice_contact_name || null,
           invoice_recipient_name: body.invoice_recipient_name || null,
           invoice_postal_code: body.invoice_postal_code || null,
           invoice_address: body.invoice_address || null,
@@ -131,6 +133,8 @@ export async function POST(request: NextRequest) {
             paymentMethod: data.payment_method,
             paymentAmount: data.payment_amount,
             invoiceNumber: data.invoice_number,
+            invoiceCompanyName: data.invoice_company_name,
+            invoiceContactName: data.invoice_contact_name,
             invoiceRecipientName: data.invoice_recipient_name,
             invoicePostalCode: data.invoice_postal_code,
             invoiceAddress: data.invoice_address,

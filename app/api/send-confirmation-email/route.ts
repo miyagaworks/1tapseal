@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
       paymentMethod,
       paymentAmount,
       invoiceNumber,
+      invoiceCompanyName,
+      invoiceContactName,
       invoiceRecipientName,
       invoicePostalCode,
       invoiceAddress,
@@ -118,6 +120,8 @@ export async function POST(request: NextRequest) {
         // 注文オブジェクトを構築
         const orderForInvoice: Partial<Order> = {
           invoice_number: invoiceNumber,
+          invoice_company_name: invoiceCompanyName || customerCompanyName,
+          invoice_contact_name: invoiceContactName || customerName,
           invoice_recipient_name: invoiceRecipientName || customerName,
           invoice_postal_code: invoicePostalCode || customerPostalCode,
           invoice_address: invoiceAddress || customerAddress,

@@ -71,6 +71,7 @@ export default function OrderPage() {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [postalCodeSuggestions, setPostalCodeSuggestions] = useState<string[]>([]);
   const [shorteningUrl, setShorteningUrl] = useState<string | null>(null); // 短縮中のURL識別子
+  const [isSubmitting, setIsSubmitting] = useState(false); // 注文送信中フラグ
 
   // URL短縮ヘルパー関数
   const shortenUrl = async (url: string): Promise<string | null> => {
@@ -428,6 +429,7 @@ export default function OrderPage() {
 
   // 注文送信
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
       // 注文データの準備
       const fullAddress = `${formData.prefecture}${formData.city}${formData.address}${formData.building ? ' ' + formData.building : ''}`;
@@ -573,6 +575,7 @@ export default function OrderPage() {
     } catch (error) {
       console.error('Error submitting order:', error);
       alert(`注文の送信に失敗しました。\n${error instanceof Error ? error.message : '不明なエラー'}\n\nもう一度お試しいただくか、お問い合わせください。`);
+      setIsSubmitting(false);
     }
   };
 
@@ -580,6 +583,19 @@ export default function OrderPage() {
   if (step === 'confirm') {
     return (
       <div className="min-h-screen bg-white">
+        {/* ローディングオーバーレイ */}
+        {isSubmitting && (
+          <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 mx-4">
+              <div className="animate-spin h-12 w-12 border-4 border-accent-light border-t-transparent rounded-full"></div>
+              <p className="text-text-dark font-bold text-lg">ご注文を処理中...</p>
+              <p className="text-text-medium text-sm text-center">
+                しばらくお待ちください。<br />
+                画面を閉じないでください。
+              </p>
+            </div>
+          </div>
+        )}
         <header className="sticky top-0 z-50 bg-gradient-to-r from-primary-light to-primary py-6 px-4 shadow-md">
           <div className="max-w-4xl mx-auto">
             <Link href="/" className="inline-flex items-center gap-2 text-text-dark hover:text-text-medium transition-all hover:gap-3 group">
@@ -767,7 +783,12 @@ export default function OrderPage() {
             <div className="flex flex-col md:flex-row gap-4">
               <button
                 onClick={() => setStep('form')}
-                className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-primary-light/10 text-text-dark font-bold py-4 px-8 rounded-full text-lg transition-colors border-2 border-primary-light"
+                disabled={isSubmitting}
+                className={`flex-1 flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-full text-lg transition-colors border-2 ${
+                  isSubmitting
+                    ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
+                    : 'bg-white hover:bg-primary-light/10 text-text-dark border-primary-light'
+                }`}
               >
                 <MdArrowBack className="text-2xl" />
                 内容を修正
@@ -775,10 +796,24 @@ export default function OrderPage() {
 
               <button
                 onClick={handleSubmit}
-                className="flex-1 flex items-center justify-center gap-2 bg-accent-light hover:bg-accent text-white font-bold py-4 px-8 rounded-full text-lg transition-colors shadow-lg"
+                disabled={isSubmitting}
+                className={`flex-1 flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-full text-lg transition-colors shadow-lg ${
+                  isSubmitting
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-accent-light hover:bg-accent text-white'
+                }`}
               >
-                <MdCheck className="text-2xl" />
-                注文を確定する
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full"></div>
+                    処理中...
+                  </>
+                ) : (
+                  <>
+                    <MdCheck className="text-2xl" />
+                    注文を確定する
+                  </>
+                )}
               </button>
             </div>
           </div>
