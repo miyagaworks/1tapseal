@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
               <p style="margin: 10px 0 0 0; font-size: 14px; color: #92400E;">
                 配送状況は下記リンクからご確認いただけます
               </p>
-              <a href="https://trackings.post.japanpost.jp/services/srv/search/input" target="_blank" class="button" style="display: inline-block; margin-top: 10px;">
+              <a href="https://trackings.post.japanpost.jp/services/srv/search/input" target="_blank" style="display: inline-block; margin-top: 15px; padding: 12px 24px; background-color: #D97706; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold;">
                 配送状況を確認する
               </a>
             </div>
