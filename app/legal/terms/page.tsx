@@ -192,7 +192,7 @@ export default function TermsPage() {
 
       <footer className="bg-text-dark text-bg-cream px-4 py-8 mt-12">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-sm">&copy; 2025 ワンタップシール by Senrigan Inc.</p>
+          <p className="text-sm">&copy; {new Date().getFullYear()} ワンタップシール by Senrigan Inc.</p>
         </div>
       </footer>
     </div>

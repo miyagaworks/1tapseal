@@ -1347,7 +1347,7 @@ export default function Home() {
           </div>
           <div className="border-t border-primary-light/20 pt-8 text-center text-sm text-bg-cream/75">
             <p>
-              &copy; 2025 One Tap Seal by Senrigan Inc. All rights reserved.
+              &copy; {new Date().getFullYear()} One Tap Seal by Senrigan Inc. All rights reserved.
             </p>
           </div>
         </div>

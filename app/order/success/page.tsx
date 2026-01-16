@@ -65,7 +65,7 @@ function SuccessContent() {
       <footer className="bg-gradient-to-br from-text-medium via-text-medium to-text-dark text-bg-cream px-4 py-8">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-sm">
-            &copy; 2025 One Tap Seal by Senrigan Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} One Tap Seal by Senrigan Inc. All rights reserved.
           </p>
         </div>
       </footer>
