@@ -33,8 +33,6 @@ import {
 } from "react-icons/md";
 
 export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "processing" | "shipped" | "completed">("all");
@@ -54,33 +52,12 @@ export default function AdminPage() {
   // selectedOrderIdから注文を取得
   const selectedOrder = orders.find(order => order.id === selectedOrderId);
 
-  // ページロード時に認証状態をチェック
+  // 認証は proxy.ts の HTTP Basic 認証で行うため、
+  // このページに到達した時点で認証済み
+  // ページロード時に注文一覧を取得する
   useEffect(() => {
-    const authToken = localStorage.getItem('admin_auth');
-    if (authToken === 'authenticated') {
-      setIsAuthenticated(true);
-      fetchOrders();
-    }
+    fetchOrders();
   }, []);
-
-  // 認証チェック
-  const handleLogin = () => {
-    // 簡易認証（本番環境では改善が必要）
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD || password === "admin123") {
-      setIsAuthenticated(true);
-      localStorage.setItem('admin_auth', 'authenticated');
-      fetchOrders();
-    } else {
-      alert("パスワードが正しくありません");
-    }
-  };
-
-  // ログアウト
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('admin_auth');
-    setOrders([]);
-  };
 
   // 注文一覧取得
   const fetchOrders = async () => {
@@ -521,33 +498,6 @@ export default function AdminPage() {
     );
   };
 
-  // 未認証の場合、ログイン画面を表示
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-          <h1 className="text-2xl font-bold text-text-dark mb-6 text-center">
-            管理画面ログイン
-          </h1>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && handleLogin()}
-            placeholder="パスワードを入力"
-            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-accent-light text-gray-900 placeholder-gray-400"
-          />
-          <button
-            onClick={handleLogin}
-            className="w-full bg-accent-light hover:bg-accent text-white font-bold py-3 rounded-lg transition-colors"
-          >
-            ログイン
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-7xl mx-auto">
@@ -696,12 +646,6 @@ export default function AdminPage() {
               className="bg-accent-light hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
             >
               更新
-            </button>
-            <button
-              onClick={handleLogout}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded-lg transition-colors shadow-md"
-            >
-              ログアウト
             </button>
           </div>
         </div>
