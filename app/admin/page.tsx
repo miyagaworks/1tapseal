@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Order, supabase } from "@/lib/supabase";
+import { Order } from "@/lib/supabase";
 import * as XLSX from "xlsx";
 import {
   MdContentCopy,
@@ -881,11 +881,14 @@ export default function AdminPage() {
                           if (!order.excel_file_path) return;
 
                           try {
-                            const { data, error } = await supabase.storage
-                              .from('order-files')
-                              .download(order.excel_file_path);
+                            // order-files は非公開のため、認証済みのサーバー経由で取得する
+                            const response = await fetch(`/api/admin/orders/${order.id}/file`);
 
-                            if (error) throw error;
+                            if (!response.ok) {
+                              throw new Error("ファイルのダウンロードに失敗しました");
+                            }
+
+                            const data = await response.blob();
 
                             // ファイル名を抽出
                             const fileName = order.excel_file_path.split('/').pop() || 'download.xlsx';
