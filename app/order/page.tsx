@@ -7,6 +7,20 @@ import { GoogleMap } from "@/lib/components/GoogleMap";
 
 type PaymentMethod = 'card' | 'bank_transfer';
 
+// 添付ファイルの制限
+// 上限4MBは、Vercelがリクエスト本文4,500,000バイト超で
+// アプリのコードに届く前に413を返すため、その手前に収まる値
+const ALLOWED_FILE_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.txt'];
+const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4MB
+
+const FILE_TYPE_ERROR_MESSAGE =
+  'この形式のファイルには対応していません。Excel（.xlsx、.xls）、CSV（.csv）、テキスト（.txt）のいずれかをお選びください。';
+const FILE_SIZE_ERROR_MESSAGE =
+  'ファイルの容量が大きすぎます（4MBまで）。ファイルを分けていただくか、Googleスプレッドシートの共有URLでのご提供をお願いいたします。';
+// 送信失敗時のcatchが「注文の送信に失敗しました。」と
+// 「もう一度お試しいただくか、お問い合わせください。」で囲むため、理由だけを短く持つ
+const FILE_UPLOAD_ERROR_MESSAGE = '添付ファイルを保存できませんでした。';
+
 interface FormData {
   quantity: number;
   urls: string[];
@@ -512,7 +526,16 @@ export default function OrderPage() {
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('ファイルのアップロードに失敗しました');
+          // 本文は読まずに状態番号だけで振り分ける。
+          // Vercelがアプリのコードに届く前に返す413は本文が素のテキスト（JSONではない）ため、
+          // JSONとして読もうとすると例外になり、理由がまた失われる
+          if (uploadResponse.status === 413) {
+            throw new Error(FILE_SIZE_ERROR_MESSAGE);
+          }
+          if (uploadResponse.status === 400) {
+            throw new Error(FILE_TYPE_ERROR_MESSAGE);
+          }
+          throw new Error(FILE_UPLOAD_ERROR_MESSAGE);
         }
 
         const uploadResult = await uploadResponse.json();
@@ -1095,7 +1118,7 @@ export default function OrderPage() {
                       11枚以上のご注文の場合
                     </p>
                     <p className="text-text-medium text-sm">
-                      全て同じURLの場合は直接入力、異なるURLの場合はExcel (.xlsx, .xls)、CSV (.csv)、テキスト (.txt) ファイル、または Googleスプレッドシート（共有URL）でURL情報をご提供ください。
+                      全て同じURLの場合は直接入力、異なるURLの場合はExcel (.xlsx, .xls)、CSV (.csv)、テキスト (.txt) ファイル、または Googleスプレッドシート（共有URL）でURL情報をご提供ください。（ファイルは1つ、4MBまで）
                     </p>
                   </div>
 
@@ -1163,7 +1186,38 @@ export default function OrderPage() {
                           accept=".xlsx,.xls,.csv,.txt"
                           onChange={(e) => {
                             const file = e.target.files?.[0] || null;
+
+                            // ダイアログを閉じただけの場合は、いまの選択状態とエラーをそのまま保つ
+                            if (!file) return;
+
+                            const fileName = file.name.toLowerCase();
+                            const hasAllowedExtension = ALLOWED_FILE_EXTENSIONS.some(
+                              (extension) => fileName.endsWith(extension)
+                            );
+
+                            if (!hasAllowedExtension) {
+                              // 弾いたファイルを選び直したときにも再度反応するよう、値を空に戻す
+                              e.target.value = '';
+                              setFormData(prev => ({ ...prev, excelFile: null }));
+                              setErrors(prev => ({ ...prev, excelFile: FILE_TYPE_ERROR_MESSAGE }));
+                              return;
+                            }
+
+                            if (file.size > MAX_FILE_SIZE_BYTES) {
+                              // 弾いたファイルを選び直したときにも再度反応するよう、値を空に戻す
+                              e.target.value = '';
+                              setFormData(prev => ({ ...prev, excelFile: null }));
+                              setErrors(prev => ({ ...prev, excelFile: FILE_SIZE_ERROR_MESSAGE }));
+                              return;
+                            }
+
+                            // 条件を満たすファイルが選ばれたときにだけエラーを消す
                             setFormData(prev => ({ ...prev, excelFile: file }));
+                            setErrors(prev => {
+                              const newErrors = { ...prev };
+                              delete newErrors.excelFile;
+                              return newErrors;
+                            });
                           }}
                           className={`w-full px-4 py-2 border-2 rounded-lg text-text-dark focus:outline-none ${
                             errors.excelFile ? 'border-red-600 focus:border-red-600' : 'border-primary-light focus:border-accent-light'
