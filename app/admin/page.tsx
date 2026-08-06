@@ -890,8 +890,24 @@ export default function AdminPage() {
 
                             const data = await response.blob();
 
-                            // ファイル名を抽出
-                            const fileName = order.excel_file_path.split('/').pop() || 'download.xlsx';
+                            // 保存名は英数字だけに落ちる（app/api/upload/route.ts の sanitizeBaseName）ため、
+                            // 複数ダウンロードしても見分けが付くよう、注文の情報から名前を組み立てる
+                            const storedName = order.excel_file_path.split('/').pop() || '';
+                            const lastDotIndex = storedName.lastIndexOf('.');
+                            const extension = lastDotIndex === -1 ? '' : storedName.slice(lastDotIndex);
+
+                            // 会社名は任意項目なので、無ければ顧客名を使う
+                            const ownerName = (order.customer_company_name?.trim() || order.customer_name || '')
+                              .replace(/[/\\]/g, '')
+                              .trim();
+
+                            const createdAt = new Date(order.created_at);
+                            const orderDate = Number.isNaN(createdAt.getTime())
+                              ? ''
+                              : `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}-${String(createdAt.getDate()).padStart(2, '0')}`;
+
+                            const label = [ownerName, orderDate].filter(Boolean).join('_');
+                            const fileName = label ? `${label}${extension}` : (storedName || 'download.xlsx');
 
                             // ダウンロード
                             const url = URL.createObjectURL(data);

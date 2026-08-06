@@ -24,21 +24,39 @@ const MAX_REQUEST_SIZE = MAX_FILE_SIZE + 64 * 1024;
 const MAX_BASE_NAME_LENGTH = 100;
 const FALLBACK_BASE_NAME = 'upload';
 
+// Supabase Storage が保存名に受け付ける文字。本番で実測した結果、
+// 英数字 / . / _ / - / 半角空白 以外（日本語などの非ASCII、% を含む）は拒否される。
+const ALLOWED_BASE_NAME_CHAR = /[A-Za-z0-9._\- ]/;
+
+// 保存名の先頭・末尾に残ると具合の悪い文字
+const EDGE_CHARS = new Set(['.', '_', '-', ' ']);
+
+function trimEdgeChars(value: string): string {
+  let start = 0;
+  let end = value.length;
+  while (start < end && EDGE_CHARS.has(value[start])) start += 1;
+  while (end > start && EDGE_CHARS.has(value[end - 1])) end -= 1;
+  return value.slice(start, end);
+}
+
 // 保存名はアップロード時の元の名前を含むため、外部が自由に決められる値になる。
-// 経路の区切り文字と制御文字を取り除き、長さにも上限を設ける。
+// Supabase Storage が受け付ける文字だけを残し、長さにも上限を設ける。
+// 日本語のファイル名はここで空になり FALLBACK_BASE_NAME に落ちるが、
+// 元の名前は注文のメモに記録される（app/order/page.tsx:495）ため失われない。
 function sanitizeBaseName(baseName: string): string {
-  let stripped = '';
+  let allowed = '';
   for (const char of baseName) {
-    const codePoint = char.codePointAt(0) ?? 0;
-    if (codePoint < 0x20 || codePoint === 0x7f) continue; // 制御文字
-    if (char === '/' || char === '\\') continue; // 経路の区切り文字
-    stripped += char;
+    if (!ALLOWED_BASE_NAME_CHAR.test(char)) continue;
+    allowed += char;
   }
 
-  // 文字単位で切り詰める（サロゲートペアを分割して壊れた文字を作らないため）
-  const truncated = Array.from(stripped.trim()).slice(0, MAX_BASE_NAME_LENGTH).join('');
+  // 文字単位で切り詰める（切り詰め方は従来どおり）
+  const truncated = Array.from(trimEdgeChars(allowed)).slice(0, MAX_BASE_NAME_LENGTH).join('');
 
-  return truncated.length > 0 ? truncated : FALLBACK_BASE_NAME;
+  // 切り詰めで末尾に区切り文字が現れることがあるので、もう一度落とす
+  const trimmed = trimEdgeChars(truncated);
+
+  return trimmed.length > 0 ? trimmed : FALLBACK_BASE_NAME;
 }
 
 export async function POST(request: NextRequest) {
